@@ -373,7 +373,7 @@ int proceed_register_vote(phash, idx, weight) impure inline_ref {
   return status;
 }
 
-(slice, int) scan_proposal(int phash, slice pstatus) inline_ref {
+(slice, int) scan_proposal(slice pstatus) inline_ref {
   (cell cur_vset, int total_weight, _) = get_current_vset();
   int cur_vset_id = cur_vset.cell_hash();
   (int expires,
@@ -414,7 +414,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   ifnot (found?) {
     return vote_dict;
   }
-  (pstatus, int changed?) = scan_proposal(phash, pstatus);
+  (pstatus, int changed?) = scan_proposal(pstatus);
   if (changed?) {
     if (pstatus.null?()) {
       vote_dict~udict_delete?(256, phash);
