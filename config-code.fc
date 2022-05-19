@@ -417,9 +417,9 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
 }
 
 int register_voting_proposal(slice cs, int msg_value) impure inline_ref {
-  (int expire_at, cell proposal, int critical?) = (cs~load_uint(32), cs~load_ref(), cs~load_int(1));
-  if (expire_at >> 30) {
-    expire_at -= now();
+  (int expire_in, cell proposal, int critical?) = (cs~load_uint(32), cs~load_ref(), cs~load_int(1));
+  if(expire_in >> 30) {
+    expire_in -= now();
   }
   (int param_id, cell param_val, int hash) = parse_config_proposal(proposal);
   if (hash >= 0) {
@@ -460,15 +460,15 @@ int register_voting_proposal(slice cs, int msg_value) impure inline_ref {
    int max_store_sec, 
    int bit_price, 
    int cell_price) = get_vote_config(critical?);
-  if (expire_at < min_store_sec) {
+  if (expire_in < min_store_sec) {
     return -0xc5787069;   ;; expired
   }
-  expire_at = min(expire_at, max_store_sec);
+  expire_in = min(expire_in, max_store_sec);
   ;; compute price
   (_, int bits, int refs) = compute_data_size(param_val, 1024);
   int pps = bit_price * (bits + 1024) + cell_price * (refs + 2);
-  int price = pps * expire_at;
-  expire_at += now();
+  int price = pps * expire_in;
+  int expire_at = expire_in + now();
   (cell cfg_dict, int stored_seqno, int public_key, cell vote_dict) = load_data();
   int phash = proposal.cell_hash();
   (slice pstatus, int found?) = vote_dict.udict_get?(256, phash);
