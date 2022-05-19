@@ -1,5 +1,16 @@
 ;; Simple configuration smart contract
 
+const int op::update_config_parameter = 0x43665021;
+const int op::update_config_code = 0x4e436f64;
+const int op::update_config_key = 0x50624b21;
+const int op::update_elector_code = 0x4e43ef05;
+const int op::vote_for_config_proposal = 0x566f7465;
+
+const int special_params::set_config_key = -999;
+const int special_params::update_config_code = -1000;
+const int special_params::update_elector_code = -1001;
+
+
 () set_conf_param(int index, cell value) impure {
   slice cs = get_data().begin_parse();
   cell cfg_dict = cs~load_ref();
@@ -105,14 +116,14 @@
 }
 
 (cell, int) perform_action(cfg_dict, public_key, action, cs) inline_ref {
-  if (action == 0x43665021) {
+  if (action == op::update_config_parameter) {
     ;; change one configuration parameter
     int param_index = cs~load_int(32);
     cell param_value = cs~load_ref();
     cs.end_parse();
     cfg_dict~idict_set_ref(32, param_index, param_value);
     return (cfg_dict, public_key);
-  } elseif (action == 0x4e436f64) {
+  } elseif (action == op::update_config_code) {
     ;; change configuration smart contract code
     cell new_code = cs~load_ref();
     set_code(new_code);
@@ -121,12 +132,12 @@
     after_code_upgrade(cs, old_code);
     throw(0);
     return (cfg_dict, public_key);
-  } elseif (action == 0x50624b21) {
+  } elseif (action == op::update_config_key) {
     ;; change configuration master public key
     public_key = cs~load_uint(256);
     cs.end_parse();
     return (cfg_dict, public_key);
-  } elseif (action == 0x4e43ef05) {
+  } elseif (action == op::update_elector_code) {
     ;; change election smart contract code
     change_elector_code(cs);
     return (cfg_dict, public_key);
@@ -134,6 +145,7 @@
     throw_if(32, action);
     return (cfg_dict, public_key);
   }
+
 }
 
 (cell, int, cell) get_current_vset() inline_ref {
@@ -205,15 +217,14 @@
 }
 
 (cell, int) perform_proposed_action(cell cfg_dict, int public_key, int param_id, cell param_val) inline_ref {
-  if (param_id == -999) {
+  if (param_id == special_params::set_config_key) {
     ;; appoint or depose dictator
     return (cfg_dict, param_val.null?() ? 0 : param_val.begin_parse().preload_uint(256));
   }
   if (param_val.null?()) {
     return (cfg_dict, public_key);
   }
-  if (param_id == -1000) {
-    ;; upgrade code
+  if (param_id == special_params::update_config_code) {
     slice cs = param_val.begin_parse();
     cell new_code = cs~load_ref();
     set_code(new_code);
@@ -223,8 +234,7 @@
     throw(0);
     return (cfg_dict, public_key);
   }
-  if (param_id == -1001) {
-    ;; update elector code
+  if (param_id == special_params::update_elector_code) {
     slice cs = param_val.begin_parse();
     change_elector_code(cs);
   }
@@ -548,7 +558,7 @@ int register_voting_proposal(slice cs, int msg_value) impure inline_ref {
     }
     return send_answer(s_addr, query_id, ans_tag, mode);
   }
-  if (tag == 0x566f7465) {
+  if (tag == op::vote_for_config_proposal) {
     ;; vote for a configuration proposal
     slice signature = in_msg~load_bits(512);
     slice msg_body = in_msg;
@@ -577,7 +587,7 @@ int register_voting_proposal(slice cs, int msg_value) impure inline_ref {
   throw_if(39, slice_depth(cs) > 128);
   (cell cfg_dict, int stored_seqno, int public_key, cell vote_dict) = load_data();
   throw_unless(33, msg_seqno == stored_seqno);
-  if (action == 0x566f7465) {
+  if (action == op::vote_for_config_proposal) {
     ;; vote for a configuration proposal
     (int idx, int phash) = (cs~load_uint(16), cs~load_uint(256));
     cs.end_parse();
