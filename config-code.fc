@@ -6,11 +6,13 @@ const int op::update_config_key = 0x50624b21;
 const int op::update_elector_code = 0x4e43ef05;
 const int op::vote_for_config_proposal = 0x566f7465;
 const int op::vote_for_config_proposal_from_elector = 0x13245678; ;;TODO
+const int tag::signature_challenge = 0; ;;TODO
 
 const int special_params::set_config_key = -999;
 const int special_params::update_config_code = -1000;
 const int special_params::update_elector_code = -1001;
 const int special_params::signed_votes_disabled = -1002;
+const int special_params::config_multikey = -1003;
 
 const int error::proposal::old_mismatch = 0xe2646356;
 const int error::proposal::mandatory_nullified = 0xcd506e6c;
@@ -223,6 +225,26 @@ const int error::expired_vset = 0x13550021;
   if (found? < critical?) {
     ;; trying to set a critical parameter after a non-critical voting
     return (cfg_dict, 0, null());
+  }
+  ;; we only check that key is valid, but checkins some signature
+  if(param_id == special_params::set_config_key) {
+    slice ps = param_val.begin_parse();
+    int key = ps~load_uint(256);
+    slice signature = ps;
+    ifnot(check_signature(tag::signature_challenge, signature, key)) {
+      return (cfg_dict, 0, null());
+    }
+  }
+  if(param_id == special_params::config_multikey) {
+    int key = -1;
+    do {
+      (key, slice signature, int found?) = param_val.udict_get_next?(256, key);
+      if(found?) {
+        ifnot(check_signature(tag::signature_challenge, signature, key)) {
+          return (cfg_dict, 0, null());
+        }
+      }
+    } until ( ~ found?);
   }
   ;; CHANGE ONE CONFIGURATION PARAMETER (!)
   cfg_dict~idict_set_ref(32, param_id, param_val);
@@ -632,6 +654,32 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   stored_seqno = (stored_seqno + 1) % (1 << 32);
   store_data(cfg_dict, stored_seqno, public_key, vote_dict);
   commit();
+  cell key_dict = config_param(special_params::config_multikey);
+  if(~ key_dict.cell_null?()) {
+    int sign_num = 1;
+    int total_signee = 1;
+    if(cs.slice_refs() < 1) {
+      return ();
+    }
+    cell signatures = cs~load_ref();
+    int key = -1;
+    do {
+      (key, _, int found?) = key_dict.udict_get_next?(256, key);
+      total_signee += 1;
+      if(found?) {
+        (slice sig, int have_sig?) = signatures.udict_get?(256, key);
+        if(have_sig?) {
+          ifnot (check_signature(slice_hash(in_msg), sig, key)) { ;; wrong signature causes fail
+            return ();
+          }
+          sign_num += 1;
+        }
+      }
+    } until ( ~ found?);
+    if(sign_num < muldiv(total_signee, 2, 3)) { ;; at least 2/3 of signers should sign
+      return ();
+    }
+  }
   (cfg_dict, public_key) = perform_action(cfg_dict, public_key, action, cs);
   store_data(cfg_dict, stored_seqno, public_key, vote_dict);
 }
