@@ -6,7 +6,14 @@ const int op::update_config_key = 0x50624b21;
 const int op::update_elector_code = 0x4e43ef05;
 const int op::vote_for_config_proposal = 0x566f7465;
 const int op::vote_for_config_proposal_from_elector = 0x13245678; ;;TODO
-const int tag::signature_challenge = 0; ;;TODO
+const int op::set_next_validator_set = 0x4e565354;
+const int op::response::confirm = 0xee764f4b;
+const int op::response::reject = 0xee764f6f;
+const int op::new_voting_proposal = 0x6e565052;
+const int op::response::proposal_accepted = (op::new_voting_proposal + 0x80000000);
+const int op::response::vote_result = 0xd6745240;
+const int tag::signature_challenge = 0x566f7445;
+const int tag::ed25519_pubkey = 0x8e81278a;
 
 const int special_params::set_config_key = -999;
 const int special_params::update_config_code = -1000;
@@ -187,7 +194,7 @@ const int error::expired_vset = 0x13550021;
   ;; validator#53 public_key:SigPubKey weight:uint64 = ValidatorDescr;
   ;; validator_addr#73 public_key:SigPubKey weight:uint64 adnl_addr:bits256 = ValidatorDescr;
   throw_unless(41, (cs~load_uint(8) & ~ 0x20) == 0x53);
-  throw_unless(41, cs~load_uint(32) == 0x8e81278a);
+  throw_unless(41, cs~load_uint(32) == tag::ed25519_pubkey);
   return (cs~load_uint(256), cs~load_uint(64));
 }
 
@@ -553,7 +560,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   }
   int tag = in_msg~load_uint(32);
   int query_id = in_msg~load_uint(64);
-  if (tag == 0x4e565354) {
+  if (tag == op::set_next_validator_set) {
     ;; set next validator set
     cell vset = in_msg~load_ref();
     in_msg.end_parse();
@@ -570,12 +577,12 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     if (ok) {
       set_conf_param(36, vset);
       ;; send confirmation
-      return send_confirmation(s_addr, query_id, 0xee764f4b);
+      return send_confirmation(s_addr, query_id, op::response::confirm);
     } else {
-      return send_error(s_addr, query_id, 0xee764f6f);
+      return send_error(s_addr, query_id, op::response::reject);
     }
   }
-  if (tag == 0x6e565052) {
+  if (tag == op::new_voting_proposal) {
     ;; new voting proposal
     (int price, int error) = register_voting_proposal(in_msg, msg_value);
     int mode = 64;
@@ -583,7 +590,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     ifnot (error) {
       ;; ok, debit price
       raw_reserve(price, 4);
-      ans_tag = 0xee565052;
+      ans_tag = op::response::proposal_accepted;
       mode = 128;
     }
     return send_answer(s_addr, query_id, ans_tag, mode);
@@ -594,12 +601,12 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     slice msg_body = in_msg;
     (int sign_tag, int idx, int phash) = (in_msg~load_uint(32), in_msg~load_uint(16), in_msg~load_uint(256));
     in_msg.end_parse();
-    throw_unless(37, sign_tag == 0x566f7445);
+    throw_unless(37, sign_tag == tag::signature_challenge);
     (slice vdescr, int total_weight) = get_validator_descr(idx);
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
     int res = proceed_register_vote(phash, idx, weight);
-    return send_confirmation(s_addr, query_id, res + 0xd6745240);
+    return send_confirmation(s_addr, query_id, res + op::response::vote_result);
   }
   if (tag == op::vote_for_config_proposal_from_elector) {
     (int idx, int phash, int vset_id) = (in_msg~load_uint(16), in_msg~load_uint(256), in_msg~load_uint(256));
@@ -616,7 +623,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     (slice vdescr, _) = validators.udict_get?(16, idx);
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     int res = proceed_register_vote(phash, idx, weight);
-    return send_confirmation(s_addr, query_id, res + 0xd6745240);
+    return send_confirmation(s_addr, query_id, res + op::response::vote_result);
   }
   ;; if tag is non-zero and its higher bit is zero, throw an exception (the message is an unsupported query)
   ;; to bounce message back to sender
