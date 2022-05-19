@@ -646,7 +646,7 @@ int seqno() method_id {
   return get_data().begin_parse().preload_uint(32);
 }
 
-;; [expires, critical?, [param_id, param_val, param_hash], vset_id, voters_list, weight_remaining, rounds_remaining, losses, wins]
+;; [expires, critical?, [param_id, param_val, param_hash], vset_id, voters_list, weight_remaining, rounds_remaining, wins, losses]
 [int, int, [int, cell, int], int, tuple, int, int, int, int] unpack_proposal(slice pstatus) inline_ref {
   (int expires, cell proposal, int critical?, cell voters, int weight_remaining, int vset_id, slice rest) = unpack_proposal_status(pstatus);
   tuple voters_list = null();
@@ -662,7 +662,7 @@ int seqno() method_id {
   (int rounds_remaining, int wins, int losses) = (rest~load_uint(8), rest~load_uint(8), rest~load_uint(8));
   rest.end_parse();
   (int param_id, cell param_val, int param_hash) = parse_config_proposal(proposal);
-  return [expires, critical?, [param_id, param_val, param_hash], vset_id, voters_list, weight_remaining, rounds_remaining, losses, wins];
+  return [expires, critical?, [param_id, param_val, param_hash], vset_id, voters_list, weight_remaining, rounds_remaining, wins, losses];
 }
 
 [int, int, [int, cell, int], int, tuple, int, int, int, int] get_proposal(int phash) method_id {
