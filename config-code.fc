@@ -173,8 +173,8 @@ const int error::expired_vset = 0x13550021;
 (cell, int, cell) get_current_vset() inline_ref {
   cell vset = config_param(34);
   slice cs = begin_parse(vset);
-  ;; validators_ext#12 utime_since:uint32 utime_until:uint32 
-  ;; total:(## 16) main:(## 16) { main <= total } { main >= 1 } 
+  ;; validators_ext#12 utime_since:uint32 utime_until:uint32
+  ;; total:(## 16) main:(## 16) { main <= total } { main >= 1 }
   ;; total_weight:uint64
   throw_unless(40, cs~load_uint(8) == 0x12);
   cs~skip_bits(32 + 32 + 16 + 16);
@@ -292,7 +292,7 @@ const int error::expired_vset = 0x13550021;
 }
 
 slice update_proposal_status(slice rest, int weight_remaining, int critical?) inline_ref {
-  (int min_tot_rounds, int max_tot_rounds, int min_wins, int max_losses, _, _, _, _) 
+  (int min_tot_rounds, int max_tot_rounds, int min_wins, int max_losses, _, _, _, _)
      = get_vote_config(critical?);
   (int rounds_remaining, int wins, int losses) = (rest~load_uint(8), rest~load_uint(8), rest~load_uint(8));
   losses -= (weight_remaining >= 0);
@@ -332,12 +332,12 @@ builder begin_pack_proposal_status(int expires, cell proposal, int critical?, ce
   (cell cur_vset, int total_weight, _) = get_current_vset();
   int cur_vset_id = cur_vset.cell_hash();
   (int expires,
-   cell proposal, 
-   int critical?, 
-   cell voters, 
-   int weight_remaining, 
-   int vset_id, 
-   slice rest) = 
+   cell proposal,
+   int critical?,
+   cell voters,
+   int weight_remaining,
+   int vset_id,
+   slice rest) =
                  unpack_proposal_status(pstatus);
   if (expires <= now()) {
     ;; config proposal expired, delete and report not found
@@ -410,12 +410,12 @@ int proceed_register_vote(phash, idx, weight) impure inline_ref {
   (cell cur_vset, int total_weight, _) = get_current_vset();
   int cur_vset_id = cur_vset.cell_hash();
   (int expires,
-   cell proposal, 
-   int critical?, 
-   cell voters, 
+   cell proposal,
+   int critical?,
+   cell voters,
    int weight_remaining,
-   int vset_id, 
-   slice rest) = 
+   int vset_id,
+   slice rest) =
                  unpack_proposal_status(pstatus);
   if (expires <= now()) {
     ;; config proposal expired, delete
@@ -491,11 +491,11 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   ;; obtain vote proposal configuration
   (int min_tot_rounds,
    int max_tot_rounds,
-   int min_wins, 
-   int max_losses, 
-   int min_store_sec, 
-   int max_store_sec, 
-   int bit_price, 
+   int min_wins,
+   int max_losses,
+   int min_store_sec,
+   int max_store_sec,
+   int bit_price,
    int cell_price) = get_vote_config(critical?);
   if (expire_in < min_store_sec) {
     return (0, error::proposal::expired);
@@ -512,12 +512,12 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   if (found?) {
     ;; proposal already exists; we can only extend it
     (int expires,
-     cell r_proposal, 
-     int r_critical?, 
-     cell voters, 
+     cell r_proposal,
+     int r_critical?,
+     cell voters,
      int weight_remaining,
-     int vset_id, 
-     slice rest) = 
+     int vset_id,
+     slice rest) =
                  unpack_proposal_status(pstatus);
     if (r_critical? != critical?) {
       return (0, error::proposal::critical_flag_mismatch);  ;; cannot upgrade critical parameter to non-critical...
@@ -768,12 +768,12 @@ int proposal_storage_price(int critical?, int seconds, int bits, int refs) metho
   cell cfg_dict = get_data().begin_parse().preload_ref();
   cell cparam11 = cfg_dict.idict_get_ref(32, 11);
   (int min_tot_rounds,
-   int max_tot_rounds, 
-   int min_wins, 
-   int max_losses, 
-   int min_store_sec, 
-   int max_store_sec, 
-   int bit_price, 
+   int max_tot_rounds,
+   int min_wins,
+   int max_losses,
+   int min_store_sec,
+   int max_store_sec,
+   int bit_price,
    int cell_price) = get_vote_config_internal(critical?, cparam11);
   if (seconds < min_store_sec) {
     return -1;
