@@ -363,7 +363,11 @@ int proceed_register_vote(phash, idx, weight) impure inline_ref {
 }
 
 cell scan_random_proposal(cell vote_dict) inline_ref {
-  var (phash, pstatus, found?) = vote_dict.udict_get_nexteq?(256, random());
+  var rand = random();
+  var (phash, pstatus, found?) = vote_dict.udict_get_nexteq?(256, rand);
+  ifnot (found?) {
+    (phash, pstatus, found?) = vote_dict.udict_get_nexteq?(256, -1);
+  }
   ifnot (found?) {
     return vote_dict;
   }
