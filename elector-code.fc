@@ -282,7 +282,13 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
     return return_stake(s_addr, query_id, 6);
   }
   ;; parse current election data
-  (int elect_at, int elect_close, int min_stake, int total_stake, cell members, int failed, int finished) = elect.unpack_elect();
+  (int elect_at,
+   int elect_close,
+   int min_stake,
+   int total_stake,
+   cell members,
+   int failed,
+   int finished) = elect.unpack_elect();
   ;; elect_at~dump();
   msg_value -= ONECOIN;   ;; deduct GR$1 for sending confirmation
   if ((msg_value << 12) < total_stake) {
@@ -402,7 +408,13 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
     ;; or no elections active (or just completed)
     return ();
   }
-  (int elect_at, int elect_close, int min_stake, int total_stake, cell members, int failed, int finished) = elect.unpack_elect();
+  (int elect_at,
+   int elect_close,
+   int min_stake,
+   int total_stake,
+   cell members,
+   int failed,
+   int finished) = elect.unpack_elect();
   if ((elect_at != query_id) | ~ finished) {
     ;; not these elections, or elections not finished yet
     return ();
@@ -941,7 +953,17 @@ int conduct_elections(ds, elect, credits) impure {
     ;; elections finished
     return false;
   }
-  (credits, cell vdict, int total_weight, cell frozen_dict, int total_stakes, int cnt) = try_elect(credits, members, min_stake, max_stake, min_total_stake, max_stake_factor);
+  (credits,
+   cell vset,
+   int total_weight,
+   cell frozen_dict,
+   int total_stakes,
+   int cnt)         = try_elect(credits,
+                                members,
+                                min_stake,
+                                max_stake,
+                                min_total_stake,
+                                max_stake_factor);
   ;; pack elections; if cnt==0, set failed=true, finished=false.
   failed = (cnt == 0);
   finished = ~ failed;
@@ -963,7 +985,7 @@ int conduct_elections(ds, elect, credits) impure {
                .store_uint(cnt, 16)      ;; total:(## 16)
                .store_uint(min(cnt, main_validators), 16)  ;; main:(## 16)
                .store_uint(total_weight, 64)      ;; total_weight:uint64
-               .store_dict(vdict)        ;; list:(HashmapE 16 ValidatorDescr)
+               .store_dict(vset)        ;; list:(HashmapE 16 ValidatorDescr)
               .end_cell();
   int config_addr = config_param(0).begin_parse().preload_uint(256);
   send_validator_set_to_config(config_addr, vset, elect_at);
