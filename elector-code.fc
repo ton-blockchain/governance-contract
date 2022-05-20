@@ -1108,7 +1108,12 @@ int announce_new_elections(ds, elect, credits) {
     return false;
   }
   (int elect_for, int elect_begin_before, int elect_end_before, int stake_held) = get_validator_conf();
-  int cur_valid_until = cur_vset.begin_parse().skip_bits(8 + 32).preload_uint(32);
+  slice cvs = cur_vset.begin_parse();
+  int tag = cvs~load_uint(8);
+  ifnot((tag == 0x11) | (tag == 0x12)) { ;; unknown vset format
+    return false;
+  }
+  int cur_valid_until = cvs.skip_bits(32).preload_uint(32);
   int t = now();
   int t0 = cur_valid_until - elect_begin_before;
   if (t < t0) {
