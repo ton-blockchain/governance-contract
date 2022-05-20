@@ -331,11 +331,11 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return ();
 }
 
-(cell, int) unfreeze_without_bonuses(credits, freeze_dict, tot_stakes) inline_ref {
+(cell, int) unfreeze_without_bonuses(credits, frozen_dict, tot_stakes) inline_ref {
   int total = int recovered = 0;
   int pubkey = -1;
   do {
-    (pubkey, slice cs, int f) = freeze_dict.udict_get_next?(256, pubkey);
+    (pubkey, slice cs, int f) = frozen_dict.udict_get_next?(256, pubkey);
     if (f) {
       (int addr, int weight, int stake, int banned) = (cs~load_uint(256), cs~load_uint(64), cs~load_grams(), cs~load_int(1));
       cs.end_parse();
@@ -351,11 +351,11 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (credits, recovered);
 }
 
-(cell, int) unfreeze_with_bonuses(credits, freeze_dict, tot_stakes, tot_bonuses) inline_ref {
+(cell, int) unfreeze_with_bonuses(credits, frozen_dict, tot_stakes, tot_bonuses) inline_ref {
   int total = int recovered = int returned_bonuses = 0;
   int pubkey = -1;
   do {
-    (pubkey, slice cs, int f) = freeze_dict.udict_get_next?(256, pubkey);
+    (pubkey, slice cs, int f) = frozen_dict.udict_get_next?(256, pubkey);
     if (f) {
       (int addr, int weight, int stake, int banned) = (cs~load_uint(256), cs~load_uint(64), cs~load_grams(), cs~load_int(1));
       cs.end_parse();
@@ -382,13 +382,13 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   (int unfreeze_at,
    int stake_held,
    int vset_hash,
-   cell fdict,
+   cell frozen_dict,
    int tot_stakes,
    int bonuses,
    cell complaints) = fs.unpack_past_election();
   int unused_prizes = (bonuses > 0) ?
-    credits~unfreeze_with_bonuses(fdict, tot_stakes, bonuses) :
-    credits~unfreeze_without_bonuses(fdict, tot_stakes);
+    credits~unfreeze_with_bonuses(frozen_dict, tot_stakes, bonuses) :
+    credits~unfreeze_without_bonuses(frozen_dict, tot_stakes);
   return (credits, past_elections, unused_prizes);
 }
 
@@ -442,13 +442,13 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
     (int unfreeze_at,
      int stake_held,
      int hash,
-     cell dict,
+     cell frozen_dict,
      int total_stake,
      int bonuses,
      cell complaints) = fs.unpack_past_election();
     bonuses += msg_value;
     past_elections~udict_set_builder(32, active_id,
-      pack_past_election(unfreeze_at, stake_held, hash, dict, total_stake, bonuses, complaints));
+      pack_past_election(unfreeze_at, stake_held, hash, frozen_dict, total_stake, bonuses, complaints));
   }
   return store_data(elect, credits, past_elections, grams, active_id, active_hash);
 }
@@ -597,7 +597,7 @@ int register_complaint(s_addr, complaint, msg_value) {
   return paid;
 }
 
-(cell, cell, int, int) punish(credits, frozen, complaint) inline_ref {
+(cell, cell, int, int) punish(credits, frozen_dict, complaint) inline_ref {
   (int validator_pubkey,
    cell description,
    int created_at,
@@ -606,10 +606,10 @@ int register_complaint(s_addr, complaint, msg_value) {
    int paid,
    int suggested_fine,
    int suggested_fine_part) = complaint.begin_parse().unpack_complaint();
-  (slice cs, int f) = frozen.udict_get?(256, validator_pubkey);
+  (slice cs, int f) = frozen_dict.udict_get?(256, validator_pubkey);
   ifnot (f) {
     ;; no validator to punish
-    return (credits, frozen, 0, 0);
+    return (credits, frozen_dict, 0, 0);
   }
   (int addr, int weight, int stake, int banned) = (cs~load_uint(256),
                                                    cs~load_uint(64),
@@ -618,14 +618,16 @@ int register_complaint(s_addr, complaint, msg_value) {
   cs.end_parse();
   int fine = min(stake, suggested_fine + muldiv(stake, suggested_fine_part, 1 << 32));
   stake -= fine;
-  frozen~udict_set_builder(256, validator_pubkey, begin_cell()
-    .store_uint(addr, 256)
-    .store_uint(weight, 64)
-    .store_grams(stake)
-    .store_int(banned, 1));
+  frozen_dict~udict_set_builder(256, validator_pubkey,
+                                begin_cell()
+                                .store_uint(addr, 256)
+                                .store_uint(weight, 64)
+                                .store_grams(stake)
+                                .store_int(banned, 1)
+                               );
   int reward = min(fine >> 3, paid * 8);
   credits~credit_to(reward_addr, reward);
-  return (credits, frozen, fine - reward, fine);
+  return (credits, frozen_dict, fine - reward, fine);
 }
 
 (cell, cell, int) register_vote(complaints, chash, idx, weight) inline_ref {
@@ -864,7 +866,7 @@ int compute_total_stake(l, n, m_stake) inline_ref {
   int tot_stake = 0;
   int tot_weight = 0;
   cell vset = new_dict();
-  cell frozen = new_dict();
+  cell frozen_dict = new_dict();
   do {
     [int stake, int max_f, int pubkey, int adnl_addr] = l~list_next();
     ;; lookup source address first
@@ -889,11 +891,11 @@ int compute_total_stake(l, n, m_stake) inline_ref {
         vinfo~store_uint(adnl_addr, 256);  ;; adnl_addr:bits256
       }
       vset~udict_set_builder(16, i, vinfo);
-      frozen~udict_set_builder(256, pubkey, begin_cell()
-        .store_uint(src_addr, 256)
-        .store_uint(weight, 64)
-        .store_grams(true_stake)
-        .store_int(false, 1));
+      frozen_dict~udict_set_builder(256, pubkey, begin_cell()
+                  .store_uint(src_addr, 256)
+                  .store_uint(weight, 64)
+                  .store_grams(true_stake)
+                  .store_int(false, 1));
     }
     if (stake) {
       ;; non-zero unused part of the stake, credit to the source address
@@ -902,7 +904,7 @@ int compute_total_stake(l, n, m_stake) inline_ref {
     i += 1;
   } until (l.null?());
   throw_unless(49, tot_stake == best_stake);
-  return (credits, vset, tot_weight, frozen, tot_stake, m);
+  return (credits, vset, tot_weight, frozen_dict, tot_stake, m);
 }
 
 int conduct_elections(ds, elect, credits) impure {
@@ -939,7 +941,7 @@ int conduct_elections(ds, elect, credits) impure {
     ;; elections finished
     return false;
   }
-  (credits, cell vdict, int total_weight, cell frozen, int total_stakes, int cnt) = try_elect(credits, members, min_stake, max_stake, min_total_stake, max_stake_factor);
+  (credits, cell vdict, int total_weight, cell frozen_dict, int total_stakes, int cnt) = try_elect(credits, members, min_stake, max_stake, min_total_stake, max_stake_factor);
   ;; pack elections; if cnt==0, set failed=true, finished=false.
   failed = (cnt == 0);
   finished = ~ failed;
@@ -967,10 +969,17 @@ int conduct_elections(ds, elect, credits) impure {
   send_validator_set_to_config(config_addr, vset, elect_at);
   ;; add frozen to the dictionary of past elections
   cell past_elections = ds~load_dict();
-  past_elections~udict_set_builder(32, elect_at, pack_past_election(
-    start + elect_for + stake_held, stake_held, vset.cell_hash(),
-    frozen, total_stakes, 0, null()));
-  ;; store credits and frozen until end
+  past_elections~udict_set_builder(32, elect_at,
+                                    pack_past_election(
+                                        start + elect_for + stake_held,
+                                        stake_held,
+                                        vset.cell_hash(),
+                                        frozen_dict,
+                                        total_stakes,
+                                        0, null()
+                                    )
+                                   );
+  ;; store credits and frozen_dict until end
   set_data(begin_cell()
     .store_dict(elect)
     .store_dict(credits)
@@ -1010,19 +1019,20 @@ int update_active_vset_id() impure {
       (int tm, int hash) = (fs~load_uint(64), fs~load_uint(256));
       if (hash == cur_hash) {
         ;; parse more of this record
-        (cell dict, int total_stake, int bonuses) = (fs~load_dict(), fs~load_grams(), fs~load_grams());
+        (cell frozen_dict, int total_stake, int bonuses) = (fs~load_dict(), fs~load_grams(), fs~load_grams());
         ;; transfer 1/8 of accumulated everybody's grams to this validator set as bonuses
         int amount = (grams >> 3);
         grams -= amount;
         bonuses += amount;
         ;; serialize back
         past_elections~udict_set_builder(32, id, begin_cell()
-          .store_uint(tm, 64)
-          .store_uint(hash, 256)
-          .store_dict(dict)
-          .store_grams(total_stake)
-          .store_grams(bonuses)
-          .store_slice(fs));
+                                                  .store_uint(tm, 64)
+                                                  .store_uint(hash, 256)
+                                                  .store_dict(frozen_dict)
+                                                  .store_grams(total_stake)
+                                                  .store_grams(bonuses)
+                                                  .store_slice(fs)
+                                        );
         ;; found
         f = false;
       }
