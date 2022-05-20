@@ -770,7 +770,9 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline_ref {
   return ();
 }
 
-int postpone_elections() impure {
+int postpone_elections() inline {
+  ;; in the case postpone_elections will implement some additional logic
+  ;; don't forget to add impure modificator
   return false;
 }
 
