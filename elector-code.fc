@@ -373,19 +373,6 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (credits, recovered + tot_bonuses - returned_bonuses);
 }
 
-int stakes_sum(frozen_dict) inline_ref {
-  int total = 0;
-  int pubkey = -1;
-  do {
-    (pubkey, slice cs, int f) = frozen_dict.udict_get_next?(256, pubkey);
-    if (f) {
-      cs~skip_bits(256 + 64);
-      total += cs~load_grams();
-    }
-  } until (~ f);
-  return total;
-}
-
 (cell, cell, int) unfreeze_all(credits, past_elections, elect_id) inline_ref {
   (slice fs, int f) = past_elections~udict_delete_get?(32, elect_id);
   ifnot (f) {
@@ -399,7 +386,6 @@ int stakes_sum(frozen_dict) inline_ref {
    int tot_stakes,
    int bonuses,
    cell complaints) = fs.unpack_past_election();
-  ;; tot_stakes = fdict.stakes_sum(); ;; TEMP BUGFIX
   int unused_prizes = (bonuses > 0) ?
     credits~unfreeze_with_bonuses(fdict, tot_stakes, bonuses) :
     credits~unfreeze_without_bonuses(fdict, tot_stakes);
