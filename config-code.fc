@@ -626,10 +626,10 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   if(~ key_dict.cell_null?()) {
     int sign_num = 1;
     int total_signee = 1;
-    if(cs.slice_refs() < 1) {
+    if(in_msg.slice_refs() < 1) {
       return ();
     }
-    cell signatures = cs~load_ref();
+    cell signatures = in_msg~load_ref();
     int key = -1;
     do {
       (key, _, int found?) = key_dict.udict_get_next?(256, key);
@@ -637,6 +637,8 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
       if(found?) {
         (slice sig, int have_sig?) = signatures.udict_get?(256, key);
         if(have_sig?) {
+          ;; Note master key signs message with signatures from other keys
+          ;; but other keys sign message without (obviously) their signatures
           ifnot (check_signature(slice_hash(in_msg), sig, key)) { ;; wrong signature causes fail
             return ();
           }
