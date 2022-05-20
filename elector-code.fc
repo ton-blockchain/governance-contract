@@ -178,13 +178,26 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 
 () send_message_back(addr, ans_tag, query_id, body, grams, mode) impure inline_ref {
   ;; int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
-  builder msg = begin_cell()
-                .store_uint(0x18, 6)
-                .store_slice(addr)
-                .store_grams(grams)
-                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-                .store_uint(ans_tag, 32)
-                .store_uint(query_id, 64);
+  builder msg = begin_cell()                      ;; see "Message X" description in crypto/block/block.tlb
+                                                  ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
+    .store_uint(0x18, 6)                          ;; 0x18 = 0b011000 = {0, 1, 1 , 0, 00}
+                                                  ;; First 0 means int_msg_info$0 tag
+                                                  ;; 1 1 0 are flags (ihr_disabled, bounce, bounced)
+                                                  ;; 00 is a source address addr_none$00 tag,
+                                                  ;; correct value added automatically
+    .store_slice(addr)                            ;; destination address
+    .store_grams(grams)                           ;; stake value
+    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)   ;; 1 zero bit means there is no other:ExtraCurrencyCollection
+                                                  ;; 4 + 4 zero bits for empty ihr_fee:Grams and fwd_fee:Grams,
+                                                  ;; correct values added automatically
+                                                  ;; 64 + 32 zero bits for created_lt:uint64 and created_at:uint32,
+                                                  ;; correct values added automatically, see "CommonMsgInfo" description
+                                                  ;; 1 zero bit means there is no StateInit structure
+                                                  ;; 1 zero bit means the message body is represented
+                                                  ;; in this cell, not in reference
+                                                  ;; The following bits are the message body
+    .store_uint(ans_tag, 32)
+    .store_uint(query_id, 64);
   if (body >= 0) {
     msg~store_uint(body, 32);
   }
@@ -200,11 +213,28 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 }
 
 () send_validator_set_to_config(config_addr, vset, query_id) impure inline_ref {
-  builder msg = begin_cell()
-                  .store_uint(0xc4ff, 17)   ;; 0 11000100 0xff
+  builder msg = begin_cell()                ;; see "Message X" description in crypto/block/block.tlb
+                                            ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
+                  .store_uint(0xc4ff, 17)   ;; 0xc4ff = 0b01100010011111111 = {0, 1, 1, 0, 00, 10, 0, 11111111}
+                                            ;; First 0 means int_msg_info$0 tag
+                                            ;; 110 are flags (ihr_disabled, bounce, bounced)
+                                            ;; 00 is a source address addr_none$00 tag,
+                                            ;; correct value added automatically
+                                            ;; 10 means addr_std$10 tag, 0 means no anycast
+                                            ;; 0xFF means workchain_id (masterchain) dest_addr
                   .store_uint(config_addr, 256)
-                  .store_grams(1 << 30)     ;; ~1 gram of value to process and obtain answer
+                                            ;;destination address hash_part, see "MsgAddressInt" description
+                  .store_grams(ONECOIN)     ;; 1 TONCOIN of value to process and obtain answer
                   .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                                            ;; 1 zero bit means there is no other:ExtraCurrencyCollection
+                                            ;; 4 + 4 zero bits for empty ihr_fee:Grams and fwd_fee:Grams,
+                                            ;; correct values added automatically
+                                            ;; 64 + 32 zero bits for created_lt:uint64 and created_at:uint32,
+                                            ;; correct values added automatically, see "CommonMsgInfo" description
+                                            ;; 1 zero bit means there is no StateInit structure
+                                            ;; 1 zero bit means the message body is represented
+                                            ;; in this cell, not in reference
+                                            ;; The following bits are the message body
                   .store_uint(op::set_next_validator_set, 32)
                   .store_uint(query_id, 64)
                   .store_ref(vset);
@@ -456,11 +486,25 @@ int stakes_sum(frozen_dict) inline_ref {
   ;; save data
   set_data(begin_cell().store_dict(elect).store_dict(credits).store_slice(ds).end_cell());
   ;; send amount to sender in a new message
-  send_raw_message(begin_cell()
-    .store_uint(0x18, 6)
-    .store_slice(s_addr)
-    .store_grams(amount)
-    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+  send_raw_message(begin_cell()                   ;; see "Message X" description in crypto/block/block.tlb
+                                                  ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
+    .store_uint(0x18, 6)                          ;; 0x18 = 0b011000 = {0, 1, 1 , 0, 00}
+                                                  ;; First 0 means int_msg_info$0 tag
+                                                  ;; 1 1 0 are flags (ihr_disabled, bounce, bounced)
+                                                  ;; 00 is a source address addr_none$00 tag,
+                                                  ;; correct value added automatically
+    .store_slice(s_addr)                          ;; destination address
+    .store_grams(amount)                          ;; stake value
+    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)   ;; 1 zero bit means there is no other:ExtraCurrencyCollection
+                                                  ;; 1 zero bit means there is no other:ExtraCurrencyCollection
+                                                  ;; 4 + 4 zero bits for empty ihr_fee:Grams and fwd_fee:Grams,
+                                                  ;; correct values added automatically
+                                                  ;; 64 + 32 zero bits for created_lt:uint64 and created_at:uint32,
+                                                  ;; correct values added automatically, see "CommonMsgInfo" description
+                                                  ;; 1 zero bit means there is no StateInit structure
+                                                  ;; 1 zero bit means the message body is represented
+                                                  ;; in this cell, not in reference
+                                                  ;; The following bits are the message body
     .store_uint(op::response::stake_recover, 32)
     .store_uint(query_id, 64)
   .end_cell(), 64);
