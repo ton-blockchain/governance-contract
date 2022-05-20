@@ -791,10 +791,10 @@ int postpone_elections() inline {
 }
 
 ;; computes the total stake out of the first n entries of list l
-int compute_total_stake(l, n, m_stake) inline_ref {
+int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline_ref {
   int tot_stake = 0;
-  repeat (n) {
-    (tuple h, tuple l) = uncons(l);
+  repeat (cutoff) {
+    (tuple h, tuple applications_list) = uncons(applications_list);
     int stake = h.at(0);
     int max_f = h.at(1);
     stake = min(stake, (max_f * m_stake) >> 16);
@@ -808,8 +808,8 @@ int compute_total_stake(l, n, m_stake) inline_ref {
   (int max_validators, _, int min_validators) = (cs~load_uint(16), cs~load_uint(16), cs~load_uint(16));
   cs.end_parse();
   min_validators = max(min_validators, 1);
-  int n = 0;
-  cell sdict = new_dict();
+  int applications_number = 0;
+  cell sorting_dict = new_dict();
   int pubkey = -1;
   do {
     (pubkey, slice cs, int f) = members.udict_get_next?(256, pubkey);
@@ -822,78 +822,79 @@ int compute_total_stake(l, n, m_stake) inline_ref {
         cs~load_uint(256));
       cs.end_parse();
       slice key = begin_cell()
-        .store_uint(stake, 128)
-        .store_int(- time, 32)
-        .store_uint(pubkey, 256)
-      .end_cell().begin_parse();
-      sdict~dict_set_builder(128 + 32 + 256, key, begin_cell()
+                    .store_uint(stake, 128)
+                    .store_int(- time, 32)
+                    .store_uint(pubkey, 256)
+                  .end_cell().begin_parse();
+      sorting_dict~dict_set_builder(128 + 32 + 256, key, begin_cell()
           .store_uint(min(max_factor, max_stake_factor), 32)
           .store_uint(addr, 256)
           .store_uint(adnl_addr, 256));
-      n += 1;
+      applications_number += 1;
     }
   } until (~ f);
-  n = min(n, max_validators);
-  if (n < min_validators) {
+  applications_number = min(applications_number, max_validators);
+  if (applications_number < min_validators) {
     return (credits, new_dict(), 0, new_dict(), 0, 0);
   }
-  tuple l = nil;
+  tuple applications_list = nil;
   do {
-    (slice key, slice cs, int f) = sdict~dict::delete_get_min(128 + 32 + 256);
+    (slice key, slice cs, int f) = sorting_dict~dict::delete_get_min(128 + 32 + 256);
     if (f) {
       (int stake, _, int pubkey) = (min(key~load_uint(128), max_stake), key~load_uint(32), key.preload_uint(256));
       (int max_f, _, int adnl_addr) = (cs~load_uint(32), cs~load_uint(256), cs.preload_uint(256));
-      l = cons([stake, max_f, pubkey, adnl_addr], l);
+      applications_list = cons([stake, max_f, pubkey, adnl_addr], applications_list);
     }
   } until (~ f);
-  ;; l is the list of all stakes in decreasing order
-  int i = min_validators - 1;
-  tuple l1 = l;
-  repeat (i) {
-    l1 = cdr(l1);
+  ;; applications_list is the list of all stakes in decreasing order
+  int cutoff = min_validators - 1;
+  ;; first min_validators anyway won the elections
+  ;; lets consider others
+  tuple considered_applications_list = applications_list;
+  repeat (cutoff) {
+    considered_applications_list = cdr(considered_applications_list);
   }
-  (int best_stake, int m) = (0, 0);
+  (int max_true_stakes, int best_cutoff) = (0, 0);
   do {
-    int stake = l1~list_next().at(0);
-    i += 1;
+    int stake = considered_applications_list~list_next().at(0);
+    cutoff += 1;
     if (stake >= min_stake) {
-      int tot_stake = compute_total_stake(l, i, stake);
-      if (tot_stake > best_stake) {
-        (best_stake, m) = (tot_stake, i);
+      int sum_stake = compute_total_stake(applications_list, cutoff, stake);
+      if (sum_stake > max_true_stakes) {
+        (max_true_stakes, best_cutoff) = (sum_stake, cutoff);
       }
     }
-  } until (i >= n);
-  if ((m == 0) | (best_stake < min_total_stake)) {
+  } until (cutoff >= applications_number);
+  if ((best_cutoff == 0) | (max_true_stakes < min_total_stake)) {
     return (credits, new_dict(), 0, new_dict(), 0, 0);
   }
   ;; we have to select first m validators from list l
-  l1 = touch(l);
-  ;; l1~dump();  ;; DEBUG
-  repeat (m - 1) {
-    l1 = cdr(l1);
+  tuple temp_list = touch(applications_list);
+  repeat (best_cutoff - 1) {
+    temp_list = cdr(temp_list);
   }
-  int m_stake = car(l1).at(0);  ;; minimal stake
+  int min_stake = car(temp_list).at(0);  ;; minimal stake
   ;; create both the new validator set and the refund set
-  int i = 0;
-  int tot_stake = 0;
-  int tot_weight = 0;
+  int index = 0;
+  int total_stakes = 0;
+  int total_weight = 0;
   cell vset = new_dict();
   cell frozen_dict = new_dict();
   do {
-    [int stake, int max_f, int pubkey, int adnl_addr] = l~list_next();
+    [int stake, int max_f, int pubkey, int adnl_addr] = applications_list~list_next();
     ;; lookup source address first
     (slice val, int f) = members.udict_get?(256, pubkey);
     throw_unless(61, f);
     (_, _, int src_addr) = (val~load_grams(), val~load_uint(64), val.preload_uint(256));
-    if (i < m) {
+    if (index < best_cutoff) {
       ;; one of the first m members, include into validator set
-      int true_stake = min(stake, (max_f * m_stake) >> 16);
+      int true_stake = min(stake, (max_f * min_stake) >> 16);
       stake -= true_stake;
       ;; ed25519_pubkey#8e81278a pubkey:bits256 = SigPubKey;  // 288 bits
       ;; validator_addr#73 public_key:SigPubKey weight:uint64 adnl_addr:bits256 = ValidatorDescr;
-      int weight = (true_stake << 60) / best_stake;
-      tot_stake += true_stake;
-      tot_weight += weight;
+      int weight = (true_stake << 60) / max_true_stakes;
+      total_stakes += true_stake;
+      total_weight += weight;
       builder vinfo = begin_cell()
                       .store_uint(adnl_addr ? 0x73 : 0x53, 8)  ;; validator_addr#73 or validator#53
                       .store_uint(tag::ed25519_pubkey, 32)    ;; ed25519_pubkey#8e81278a
@@ -902,7 +903,7 @@ int compute_total_stake(l, n, m_stake) inline_ref {
       if (adnl_addr) {
         vinfo~store_uint(adnl_addr, 256);  ;; adnl_addr:bits256
       }
-      vset~udict_set_builder(16, i, vinfo);
+      vset~udict_set_builder(16, index, vinfo);
       frozen_dict~udict_set_builder(256, pubkey, begin_cell()
                   .store_uint(src_addr, 256)
                   .store_uint(weight, 64)
@@ -913,10 +914,10 @@ int compute_total_stake(l, n, m_stake) inline_ref {
       ;; non-zero unused part of the stake, credit to the source address
       credits~credit_to(src_addr, stake);
     }
-    i += 1;
-  } until (l.null?());
-  throw_unless(49, tot_stake == best_stake);
-  return (credits, vset, tot_weight, frozen_dict, tot_stake, m);
+    index += 1;
+  } until (applications_list.null?());
+  throw_unless(49, total_stakes == max_true_stakes);
+  return (credits, vset, total_weight, frozen_dict, total_stakes, best_cutoff);
 }
 
 int conduct_elections(ds, elect, credits) impure {
@@ -1223,15 +1224,15 @@ tuple participant_list() method_id {
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
-  tuple l = nil;
+  tuple list = nil;
   int id = (1 << 255) + ((1 << 255) - 1);
   do {
     (id, slice fs, int f) = members.udict_get_prev?(256, id);
     if (f) {
-      l = cons([id, fs~load_grams()], l);
+      list = cons([id, fs~load_grams()], list);
     }
   } until (~ f);
-  return l;
+  return list;
 }
 
 ;; returns the list of all participants of current elections with their data
@@ -1248,7 +1249,7 @@ tuple participant_list() method_id {
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
-  tuple l = nil;
+  tuple list = nil;
   int id = (1 << 255) + ((1 << 255) - 1);
   do {
     (id, slice cs, int f) = members.udict_get_prev?(256, id);
@@ -1259,10 +1260,10 @@ tuple participant_list() method_id {
                                                                         cs~load_uint(256),
                                                                         cs~load_uint(256));
       cs.end_parse();
-      l = cons([id, [stake, max_factor, addr, adnl_addr]], l);
+      list = cons([id, [stake, max_factor, addr, adnl_addr]], list);
     }
   } until (~ f);
-  return (elect_at, elect_close, min_stake, total_stake, l, failed, finished);
+  return (elect_at, elect_close, min_stake, total_stake, list, failed, finished);
 }
 
 ;; computes the return stake
