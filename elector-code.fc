@@ -1093,7 +1093,7 @@ int check_unfreeze() impure {
   return ~ id.null?();
 }
 
-int announce_new_elections(ds, elect, credits) {
+int announce_new_elections(slice ds, cell elect, cell credits) impure {
   cell next_vset = config_param(36);   ;; next validator set
   ifnot (next_vset.null?()) {
     ;; next validator set exists, no elections needed
