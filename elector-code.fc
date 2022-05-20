@@ -331,7 +331,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return ();
 }
 
-(cell, int) unfreeze_without_bonuses(credits, frozen_dict, tot_stakes) inline_ref {
+(cell, int) unfreeze_without_bonuses(credits, frozen_dict, total_stake) inline_ref {
   int total = int recovered = 0;
   int pubkey = -1;
   do {
@@ -347,11 +347,11 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
       total += stake;
     }
   } until (~ f);
-  throw_unless(59, total == tot_stakes);
+  throw_unless(59, total == total_stake);
   return (credits, recovered);
 }
 
-(cell, int) unfreeze_with_bonuses(credits, frozen_dict, tot_stakes, tot_bonuses) inline_ref {
+(cell, int) unfreeze_with_bonuses(credits, frozen_dict, total_stake, tot_bonuses) inline_ref {
   int total = int recovered = int returned_bonuses = 0;
   int pubkey = -1;
   do {
@@ -362,14 +362,14 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
       if (banned) {
         recovered += stake;
       } else {
-        int bonus = muldiv(tot_bonuses, stake, tot_stakes);
+        int bonus = muldiv(tot_bonuses, stake, total_stake);
         returned_bonuses += bonus;
         credits~credit_to(addr, stake + bonus);
       }
       total += stake;
     }
   } until (~ f);
-  throw_unless(59, (total == tot_stakes) & (returned_bonuses <= tot_bonuses));
+  throw_unless(59, (total == total_stake) & (returned_bonuses <= tot_bonuses));
   return (credits, recovered + tot_bonuses - returned_bonuses);
 }
 
@@ -383,12 +383,12 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
    int stake_held,
    int vset_hash,
    cell frozen_dict,
-   int tot_stakes,
+   int total_stake,
    int bonuses,
    cell complaints) = fs.unpack_past_election();
   int unused_prizes = (bonuses > 0) ?
-    credits~unfreeze_with_bonuses(frozen_dict, tot_stakes, bonuses) :
-    credits~unfreeze_without_bonuses(frozen_dict, tot_stakes);
+    credits~unfreeze_with_bonuses(frozen_dict, total_stake, bonuses) :
+    credits~unfreeze_without_bonuses(frozen_dict, total_stake);
   return (credits, past_elections, unused_prizes);
 }
 
