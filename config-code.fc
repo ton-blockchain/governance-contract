@@ -80,14 +80,6 @@
   .end_cell(), mode);
 }
 
-() send_confirmation(addr, query_id, ans_tag) impure inline {
-  return send_answer(addr, query_id, ans_tag, 64);
-}
-
-() send_error(addr, query_id, ans_tag) impure inline {
-  return send_answer(addr, query_id, ans_tag, 64);
-}
-
 ;; forward a message to elector smart contract to make it upgrade its code
 () change_elector_code(slice cs) impure {
   int dest_addr = config_param(1).begin_parse().preload_uint(256);
@@ -546,9 +538,9 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     if (ok) {
       set_conf_param(36, vset);
       ;; send confirmation
-      return send_confirmation(s_addr, query_id, op::response::confirm);
+      return send_answer(s_addr, query_id, op::response::confirm, 64);
     } else {
-      return send_error(s_addr, query_id, op::response::reject);
+      return send_answer(s_addr, query_id, op::response::reject, 64);
     }
   }
   if (tag == op::new_voting_proposal) {
@@ -575,7 +567,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
     int res = proceed_register_vote(phash, idx, weight);
-    return send_confirmation(s_addr, query_id, res + op::response::vote_result);
+    return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
   }
   if (tag == op::vote_for_config_proposal_from_elector) {
     (int idx, int phash, int vset_id) = (in_msg~load_uint(16), in_msg~load_uint(256), in_msg~load_uint(256));
@@ -584,15 +576,15 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     (cell cur_vset, int total_weight, cell validators) = get_current_vset();
     int cur_vset_id = cur_vset.cell_hash();
     if( ~ (src_addr == elector_addr)) {
-      return send_error(s_addr, query_id, error::unauthorized);
+      return send_answer(s_addr, query_id, error::unauthorized, 64);
     }
     if( ~ (vset_id == cur_vset_id)) {
-      return send_error(s_addr, query_id, error::expired_vset);
+      return send_answer(s_addr, query_id, error::expired_vset, 64);
     }
     (slice vdescr, _) = validators.udict_get?(16, idx);
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     int res = proceed_register_vote(phash, idx, weight);
-    return send_confirmation(s_addr, query_id, res + op::response::vote_result);
+    return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
   }
   ;; if tag is non-zero and its higher bit is zero, throw an exception (the message is an unsupported query)
   ;; to bounce message back to sender
