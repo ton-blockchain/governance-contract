@@ -1,5 +1,7 @@
 ;; Elector smartcontract
 
+#include "interface.fc";
+
 ;; cur_elect credits past_elections grams active_id active_hash
 (cell, cell, cell, int, int, int) load_data() inline_ref {
   slice cs = get_data().begin_parse();
@@ -170,7 +172,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   ;; validator#53 public_key:SigPubKey weight:uint64 = ValidatorDescr;
   ;; validator_addr#73 public_key:SigPubKey weight:uint64 adnl_addr:bits256 = ValidatorDescr;
   throw_unless(41, (cs~load_uint(8) & ~ 0x20) == 0x53);
-  throw_unless(41, cs~load_uint(32) == 0x8e81278a);
+  throw_unless(41, cs~load_uint(32) == tag::ed25519_pubkey);
   return (cs~load_uint(256), cs~load_uint(64));
 }
 
@@ -190,11 +192,11 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 }
 
 () return_stake(addr, query_id, reason) impure inline_ref {
-  return send_message_back(addr, 0xee6f454c, query_id, reason, 0, 64);
+  return send_message_back(addr, op::response::stake_rejected, query_id, reason, 0, 64);
 }
 
 () send_confirmation(addr, query_id, comment) impure inline_ref {
-  return send_message_back(addr, 0xf374484c, query_id, comment, 1000000000, 2);
+  return send_message_back(addr, op::response::stake_accepted, query_id, comment, ONECOIN, 2);
 }
 
 () send_validator_set_to_config(config_addr, vset, query_id) impure inline_ref {
@@ -203,7 +205,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
                   .store_uint(config_addr, 256)
                   .store_grams(1 << 30)     ;; ~1 gram of value to process and obtain answer
                   .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-                  .store_uint(0x4e565354, 32)
+                  .store_uint(op::set_next_validator_set, 32)
                   .store_uint(query_id, 64)
                   .store_ref(vset);
   send_raw_message(msg.end_cell(), 1);
@@ -236,7 +238,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   slice signature = cs~load_ref().begin_parse().preload_bits(512);
   cs.end_parse();
   ifnot (check_data_signature(begin_cell()
-      .store_uint(0x654c5074, 32)
+      .store_uint(tag::stake_application, 32)
       .store_uint(stake_at, 32)
       .store_uint(max_factor, 32)
       .store_uint(src_addr, 256)
@@ -252,7 +254,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   ;; parse current election data
   (int elect_at, int elect_close, int min_stake, int total_stake, cell members, int failed, int finished) = elect.unpack_elect();
   ;; elect_at~dump();
-  msg_value -= 1000000000;   ;; deduct GR$1 for sending confirmation
+  msg_value -= ONECOIN;   ;; deduct GR$1 for sending confirmation
   if ((msg_value << 12) < total_stake) {
     ;; stake smaller than 1/4096 of the total accumulated stakes, return
     return return_stake(s_addr, query_id, 2);
@@ -440,14 +442,14 @@ int stakes_sum(frozen_dict) inline_ref {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   if (src_wc + 1) {
     ;; not from masterchain, return error
-    return send_message_back(s_addr, 0xfffffffe, query_id, op, 0, 64);
+    return send_message_back(s_addr, op::not_allowed, query_id, op, 0, 64);
   }
   slice ds = get_data().begin_parse();
   (cell elect, cell credits) = (ds~load_dict(), ds~load_dict());
   (slice cs, int f) = credits~udict_delete_get?(256, src_addr);
   ifnot (f) {
     ;; no credit for sender, return error
-    return send_message_back(s_addr, 0xfffffffe, query_id, op, 0, 64);
+    return send_message_back(s_addr, op::not_allowed, query_id, op, 0, 64);
   }
   int amount = cs~load_grams();
   cs.end_parse();
@@ -459,14 +461,14 @@ int stakes_sum(frozen_dict) inline_ref {
     .store_slice(s_addr)
     .store_grams(amount)
     .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-    .store_uint(0xf96f7324, 32)
+    .store_uint(op::response::stake_recover, 32)
     .store_uint(query_id, 64)
   .end_cell(), 64);
 }
 
 () after_code_upgrade(slice s_addr, slice cs, int query_id) impure method_id(1666) {
-  int op = 0x4e436f64;
-  return send_message_back(s_addr, 0xce436f64, query_id, op, 0, 64);
+  int op = op::set_new_code;
+  return send_message_back(s_addr, op::response::new_code_set, query_id, op, 0, 64);
 }
 
 int upgrade_code(s_addr, cs, query_id) inline_ref {
@@ -683,25 +685,25 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline_ref {
     return process_simple_transfer(s_addr, msg_value);
   }
   int query_id = in_msg~load_uint(64);
-  if (op == 0x4e73744b) {
+  if (op == op::new_stake) {
     ;; new stake message
     return process_new_stake(s_addr, msg_value, in_msg, query_id);
   }
-  if (op == 0x47657424) {
+  if (op == op::recover_stake) {
     ;; recover stake request
     return recover_stake(op, s_addr, in_msg, query_id);
   }
-  if (op == 0x4e436f64) {
+  if (op == op::set_new_code) {
     ;; upgrade code (accepted only from configuration smart contract)
     int ok = upgrade_code(s_addr, in_msg, query_id);
-    return send_message_back(s_addr, ok ? 0xce436f64 : 0xffffffff, query_id, op, 0, 64);
+    return send_message_back(s_addr, ok ? op::response::new_code_set : op::not_supported, query_id, op, 0, 64);
   }
-  int cfg_ok = (op == 0xee764f4b);
-  if (cfg_ok | (op == 0xee764f6f)) {
+  int cfg_ok = (op == op::response::update_vset_confirm);
+  if (cfg_ok | (op == op::response::update_vset_reject)) {
     ;; confirmation from configuration smart contract
     return config_set_confirmed(s_addr, in_msg, query_id, cfg_ok);
   }
-  if (op == 0x52674370) {
+  if (op == op::new_complaint) {
     ;; new complaint
     int price = register_complaint(s_addr, in_msg, msg_value);
     int mode = 64;
@@ -712,9 +714,9 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline_ref {
       ans_tag = 0;
       mode = 128;
     }
-    return send_message_back(s_addr, ans_tag + 0xf2676350, query_id, op, 0, mode);
+    return send_message_back(s_addr, ans_tag + op::response::new_complaint, query_id, op, 0, mode);
   }
-  if (op == 0x56744370) {
+  if (op == op::vote_for_complaint) {
     ;; vote for a complaint
     slice signature = in_msg~load_bits(512);
     slice msg_body = in_msg;
@@ -723,17 +725,17 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline_ref {
                                                         in_msg~load_uint(32),
                                                         in_msg~load_uint(256));
     in_msg.end_parse();
-    throw_unless(37, sign_tag == 0x56744350);
+    throw_unless(37, sign_tag == tag::complaint);
     (slice vdescr, int total_weight) = get_validator_descr(idx);
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
     int res = proceed_register_vote(elect_id, chash, idx, weight);
-    return send_message_back(s_addr, res + 0xd6745240, query_id, op, 0, 64);
+    return send_message_back(s_addr, res + op::response::vote_result, query_id, op, 0, 64);
   }
 
   ifnot (op & (1 << 31)) {
     ;; unknown query, return error
-    return send_message_back(s_addr, 0xffffffff, query_id, op, 0, 64);
+    return send_message_back(s_addr, op::not_supported, query_id, op, 0, 64);
   }
   ;; unknown answer, ignore
   return ();
@@ -849,7 +851,7 @@ int compute_total_stake(l, n, m_stake) inline_ref {
       tot_weight += weight;
       builder vinfo = begin_cell()
                       .store_uint(adnl_addr ? 0x73 : 0x53, 8)  ;; validator_addr#73 or validator#53
-                      .store_uint(0x8e81278a, 32)    ;; ed25519_pubkey#8e81278a
+                      .store_uint(tag::ed25519_pubkey, 32)    ;; ed25519_pubkey#8e81278a
                       .store_uint(pubkey, 256)       ;; pubkey:bits256
                       .store_uint(weight, 64);       ;; weight:uint64
       if (adnl_addr) {

@@ -106,7 +106,7 @@
     cs.end_parse();
     cfg_dict~idict_set_ref(32, param_index, param_value);
     return (cfg_dict, public_key);
-  } elseif (action == op::update_config_code) {
+  } elseif (action == op::set_new_code) {
     ;; change configuration smart contract code
     cell new_code = cs~load_ref();
     set_code(new_code);
@@ -538,9 +538,9 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     if (ok) {
       set_conf_param(36, vset);
       ;; send confirmation
-      return send_answer(s_addr, query_id, op::response::confirm, 64);
+      return send_answer(s_addr, query_id, op::response::update_vset_confirm, 64);
     } else {
-      return send_answer(s_addr, query_id, op::response::reject, 64);
+      return send_answer(s_addr, query_id, op::response::update_vset_reject, 64);
     }
   }
   if (tag == op::new_voting_proposal) {
