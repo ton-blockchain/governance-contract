@@ -1,37 +1,6 @@
 ;; Simple configuration smart contract
 
-const int op::update_config_parameter = 0x43665021;
-const int op::update_config_code = 0x4e436f64;
-const int op::update_config_key = 0x50624b21;
-const int op::update_elector_code = 0x4e43ef05;
-const int op::vote_for_config_proposal = 0x566f7465;
-const int op::vote_for_config_proposal_from_elector = 0x13245678; ;;TODO
-const int op::set_next_validator_set = 0x4e565354;
-const int op::response::confirm = 0xee764f4b;
-const int op::response::reject = 0xee764f6f;
-const int op::new_voting_proposal = 0x6e565052;
-const int op::response::proposal_accepted = (op::new_voting_proposal + 0x80000000);
-const int op::response::vote_result = 0xd6745240;
-const int tag::signature_challenge = 0x566f7445;
-const int tag::ed25519_pubkey = 0x8e81278a;
-
-const int special_params::set_config_key = -999;
-const int special_params::update_config_code = -1000;
-const int special_params::update_elector_code = -1001;
-const int special_params::signed_votes_disabled = -1002;
-const int special_params::config_multikey = -1003;
-
-const int error::proposal::old_mismatch = 0xe2646356;
-const int error::proposal::mandatory_nullified = 0xcd506e6c;
-const int error::proposal::too_deep = 0xc2616456;
-const int error::proposal::critical_flag_missing = 0xc3726954;
-const int error::proposal::expired = 0xc5787069;
-const int error::proposal::critical_flag_mismatch = 0xc3726955;
-const int error::proposal::already_exists = 0xc16c7245;
-const int error::proposal::insufficient_fee = 0xf0617924;
-const int error::unauthorized = 0x33440022; ;;TODO
-const int error::expired_vset = 0x13550021;
-
+#include "interface.fc";
 
 () set_conf_param(int index, cell value) impure {
   slice cs = get_data().begin_parse();
@@ -126,9 +95,9 @@ const int error::expired_vset = 0x13550021;
   send_raw_message(begin_cell()
    .store_uint(0xc4ff, 17)
    .store_uint(dest_addr, 256)
-   .store_grams(1 << 30)         ;; ~ 1 Gram (will be returned back)
+   .store_grams(ONECOIN)         ;; ~ 1 Gram (will be returned back)
    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-   .store_uint(0x4e436f64, 32)   ;; action
+   .store_uint(op::set_new_code, 32)   ;; action
    .store_uint(query_id, 64)
    .store_slice(cs)
   .end_cell(), 0);
