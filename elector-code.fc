@@ -303,11 +303,10 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
     ;; entry found, merge stakes
     msg_value += mem~load_grams();
     mem~load_uint(64);   ;; skip timestamp and max_factor
-    found = (src_addr != mem~load_uint(256));
-  }
-  if (found) {
-    ;; can make stakes for a public key from one address only
-    return return_stake(s_addr, query_id, 4);
+    if(src_addr != mem~load_uint(256)) {
+      ;; can make stakes for a public key from one address only
+      return return_stake(s_addr, query_id, 4);
+    }
   }
   if (msg_value < min_stake) {
     ;; stake too small, return it
