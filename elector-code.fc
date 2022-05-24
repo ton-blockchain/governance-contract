@@ -146,7 +146,9 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   ;; elections_end_before:uint32 stake_held_for:uint32
   ;; = ConfigParam 15;
   slice cs = config_param(config_params::validation_times).begin_parse();
-  return (cs~load_int(32), cs~load_int(32), cs~load_int(32), cs.preload_int(32));
+  (int, int, int, int) res = (cs~load_int(32), cs~load_int(32), cs~load_int(32), cs~load_int(32));
+  cs.end_parse();
+  return res;
 }
 
 ;; next three functions return information about current validator set (config param #34)

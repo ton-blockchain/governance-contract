@@ -454,6 +454,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
 ;; price, error_code
 (int, int) register_voting_proposal(slice cs, int msg_value) impure inline_ref {
   (int expire_in, cell proposal, int critical?) = (cs~load_uint(32), cs~load_ref(), cs~load_int(1));
+  cs.end_parse();
   if(expire_in >> 30) {
     expire_in -= now();
   }
