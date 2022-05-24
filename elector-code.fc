@@ -1285,6 +1285,12 @@ int announce_new_elections(slice ds, cell elect, cell credits) impure inline {
   (_, int min_stake) = config_param(config_params::validators_stakes).begin_parse().load_grams();
   ;; announce new elections
   int elect_at = t + elect_begin_before;
+  cell past_elections = ds.preload_ref();
+  (_, int f) = past_elections.udict_get?(32, elect_at);
+  if(f) {
+    ;; new election will rewrite existed one
+    return false;
+  }
   int elect_close = elect_at - elect_end_before;
   elect = pack_elect(elect_at, elect_close, min_stake, 0, new_dict(), false, false);
   set_data(begin_cell().store_dict(elect).store_dict(credits).store_slice(ds).end_cell());
