@@ -876,7 +876,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
   int min_stake = car(temp_list).at(0);  ;; minimal stake
   ;; create both the new validator set and the refund set
   int index = 0;
-  int total_stakes = 0;
+  int total_true_stakes = 0;
   int total_weight = 0;
   cell vset = new_dict();
   cell frozen_dict = new_dict();
@@ -893,7 +893,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
       ;; ed25519_pubkey#8e81278a pubkey:bits256 = SigPubKey;  // 288 bits
       ;; validator_addr#73 public_key:SigPubKey weight:uint64 adnl_addr:bits256 = ValidatorDescr;
       int weight = (true_stake << 60) / max_true_stakes;
-      total_stakes += true_stake;
+      total_true_stakes += true_stake;
       total_weight += weight;
       builder vinfo = begin_cell()
                       .store_uint(adnl_addr ? 0x73 : 0x53, 8)  ;; validator_addr#73 or validator#53
@@ -916,15 +916,15 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
     }
     index += 1;
   } until (applications_list.null?());
-  throw_unless(49, total_stakes == max_true_stakes);
-  return (credits, vset, total_weight, frozen_dict, total_stakes, best_cutoff);
+  throw_unless(49, total_true_stakes == max_true_stakes);
+  return (credits, vset, total_weight, frozen_dict, total_true_stakes, best_cutoff);
 }
 
 int conduct_elections(ds, elect, credits) impure {
   (int elect_at,
    int elect_close,
    int min_stake,
-   int total_stake,
+   int total_submitted_stake,
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
@@ -942,7 +942,7 @@ int conduct_elections(ds, elect, credits) impure {
   int min_total_stake = cs~load_grams();
   int max_stake_factor = cs~load_uint(32);
   cs.end_parse();
-  if (total_stake < min_total_stake) {
+  if (total_submitted_stake < min_total_stake) {
     ;; insufficient total stake, postpone elections
     return postpone_elections();
   }
@@ -958,7 +958,7 @@ int conduct_elections(ds, elect, credits) impure {
    cell vset,
    int total_weight,
    cell frozen_dict,
-   int total_stakes,
+   int total_true_stakes,
    int cnt)         = try_elect(credits,
                                 members,
                                 min_stake,
@@ -968,7 +968,7 @@ int conduct_elections(ds, elect, credits) impure {
   ;; pack elections; if cnt==0, set failed=true, finished=false.
   failed = (cnt == 0);
   finished = ~ failed;
-  elect = pack_elect(elect_at, elect_close, min_stake, total_stake, members, failed, finished);
+  elect = pack_elect(elect_at, elect_close, min_stake, total_submitted_stake, members, failed, finished);
   ifnot (cnt) {
     ;; elections failed, set elect_failed to true
     set_data(begin_cell().store_dict(elect).store_dict(credits).store_slice(ds).end_cell());
@@ -998,7 +998,7 @@ int conduct_elections(ds, elect, credits) impure {
                                         stake_held,
                                         vset.cell_hash(),
                                         frozen_dict,
-                                        total_stakes,
+                                        total_true_stakes,
                                         0, null()
                                     )
                                    );
