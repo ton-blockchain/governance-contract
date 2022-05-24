@@ -1109,6 +1109,9 @@ int conduct_elections(ds, elect, credits) impure inline {
                .store_dict(vset)        ;; list:(HashmapE 16 ValidatorDescr)
               .end_cell();
   int config_addr = config_param(config_params::config_address).begin_parse().preload_uint(256);
+  ;; it is expected that initial balance of elector is sufficient to cover sending of message to config
+  ;; since elector and config are special contracts they do not pay fees and thus the whole sum
+  ;; will be returned back
   send_validator_set_to_config(config_addr, vset, elect_at);
   ;; add frozen to the dictionary of past elections
   cell past_elections = ds~load_dict();
