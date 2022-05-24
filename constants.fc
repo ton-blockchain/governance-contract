@@ -4,6 +4,7 @@ const int op::update_config_key = 0x50624b21;
 const int op::update_elector_code = 0x4e43ef05;
 const int op::vote_for_config_proposal = 0x566f7465;
 const int op::vote_for_config_proposal_from_elector = 0x13245678; ;;TODO
+const int op::response::vote_for_config_proposal = (op::vote_for_config_proposal + 0x80000000);
 const int op::set_next_validator_set = 0x4e565354;
 const int op::response::update_vset_confirm = 0xee764f4b;
 const int op::response::update_vset_reject = 0xee764f6f;
@@ -40,6 +41,9 @@ const int error::proposal::already_exists = 0xc16c7245;
 const int error::proposal::insufficient_fee = 0xf0617924;
 const int error::unauthorized = 0x33440022; ;;TODO
 const int error::expired_vset = 0x13550021;
+const int error::no_elected_set = 0x7707; ;;TODO
+const int error::validator_params_mismatch = 0x7708; ;;TODO
+
 
 const int ONECOIN = 1000000000;
 

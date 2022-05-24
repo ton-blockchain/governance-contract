@@ -2,7 +2,62 @@
 
 #include "constants.fc";
 
-;; cur_elect credits past_elections grams active_id active_hash
+
+{-
+  participant#_ stake:Grams   ;; submitted stake
+                time:32       ;; time of stake submition
+                max_factor:32
+                src_addr:256
+                adnl_addr:256
+                  = Participant;
+
+  elect#_ elect_at:uint32    ;; planned time of new set activation
+          elect_close:uint32 ;; planned time of closing election for new application
+          min_stake:Grams ;; minimal stake accepted
+          total_stake:Grams ;; sum of all stakes accepted
+          members:(HashmapE 256 Participant) ;; index - validator_pubkey
+          failed:Bool
+          finished:Bool
+            = CurrentElection;
+
+  validator#_ addr:uint256 ;; wallet address of validator
+              weight:64
+              stake:Grams  ;; accepted stake, can be lower than proposed
+              banned:Bool  ;; currently unused flag
+                = Validator;
+
+  validator_complaint#bc validator_pubkey:uint256
+                         description:^ComplaintDescr
+                         created_at:uint32
+                         severity:uint8
+                         reward_addr:uint256
+                         paid:Grams
+                         suggested_fine:Grams
+                         suggested_fine_part:uint32
+                           = ValidatorComplaint;
+
+  complaint_status#2d complaint:^ValidatorComplaint voters:(HashmapE 16 True)
+                      vset_id:uint256 weight_remaining:int64 = ComplaintStatus;
+
+  elect#_ unfreeze_at:uint32 ;; time validator stakes unfrozen and can be withdrawn
+          stake_held:uint32  ;; period for holding stakes frozen, defined by ConfigParam 15
+          vset_hash:uint32   ;; validator set cell hash
+          frozen_dict:(HashmapE 256 Validator) ;; index validator_pubkey
+          total_stake:Grams  ;; sum of accepted stakes of validators
+          bonuses:Grams      ;; accumulated bonuses, distributed pro-rata
+          complaints:(HashmapE 256 ComplaintStatus) ;; index complaint hash
+          = PastElection;
+
+  storage#_ elect:CurrentElection
+            credits:(Hashmap 256 Grams) ;; index address
+            past_elections:(HashmapE 32 PastElection) ;; index elect_at
+            grams:Grams ;; nobody balance
+            active_id:uint32  ;; active election id
+            active_hash:uint256 ;; hash of current cur_validators cell
+            = Storage;
+-}
+
+
 (cell, cell, cell, int, int, int) load_data() inline_ref {
   slice cs = get_data().begin_parse();
   (cell, cell, cell, int, int, int) res = (cs~load_dict(),
@@ -243,6 +298,35 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
                   .store_uint(op::set_next_validator_set, 32)
                   .store_uint(query_id, 64)
                   .store_ref(vset);
+  send_raw_message(msg.end_cell(), 1);
+}
+
+() send_validator_vote_to_config(config_addr, query_id, cell vote) impure inline {
+  builder msg = begin_cell()                ;; see "Message X" description in crypto/block/block.tlb
+                                            ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
+                  .store_uint(0xc4ff, 17)   ;; 0xc4ff = 0b01100010011111111 = {0, 1, 1, 0, 00, 10, 0, 11111111}
+                                            ;; First 0 means int_msg_info$0 tag
+                                            ;; 110 are flags (ihr_disabled, bounce, bounced)
+                                            ;; 00 is a source address addr_none$00 tag,
+                                            ;; correct value added automatically
+                                            ;; 10 means addr_std$10 tag, 0 means no anycast
+                                            ;; 0xFF means workchain_id (masterchain) dest_addr
+                  .store_uint(config_addr, 256)
+                                            ;;destination address hash_part, see "MsgAddressInt" description
+                  .store_grams(ONECOIN)     ;; 1 TONCOIN of value to process and obtain answer
+                  .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                                            ;; 1 zero bit means there is no other:ExtraCurrencyCollection
+                                            ;; 4 + 4 zero bits for empty ihr_fee:Grams and fwd_fee:Grams,
+                                            ;; correct values added automatically
+                                            ;; 64 + 32 zero bits for created_lt:uint64 and created_at:uint32,
+                                            ;; correct values added automatically, see "CommonMsgInfo" description
+                                            ;; 1 zero bit means there is no StateInit structure
+                                            ;; 1 zero bit means the message body is represented
+                                            ;; in this cell, not in reference
+                                            ;; The following bits are the message body
+                  .store_uint(op::vote_for_config_proposal_from_elector, 32)
+                  .store_uint(query_id, 64)
+                  .store_ref(vote);
   send_raw_message(msg.end_cell(), 1);
 }
 
@@ -781,6 +865,32 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline {
     throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
     int res = proceed_register_vote(elect_id, chash, idx, weight);
     return send_message_back(s_addr, res + op::response::vote_result, query_id, op, 0, 64);
+  }
+
+  if (op == op::vote_for_config_proposal) {
+    (int idx, int pubkey, int phash) = (in_msg~load_uint(16), in_msg~load_uint(256), in_msg~load_uint(256));
+    (_, _, cell past_elections, _, int active_id, int active_hash) = load_data();
+    (slice fs, int election_found) = past_elections.udict_get?(32, active_id);
+    throw_unless(error::no_elected_set, election_found);
+    (_, _, _, cell frozen_dict, _,  _, _) = fs.unpack_past_election();
+    (slice cs, int pubkey_found) = frozen_dict.udict_get?(256, pubkey);
+    throw_unless(error::validator_params_mismatch, pubkey_found);
+    (int src_wc, int src_addr) = parse_std_addr(s_addr);
+    throw_unless(error::validator_params_mismatch, (cs~load_uint(256) == src_addr) & (src_wc == -1));
+    (slice vdescr, int total_weight) = get_validator_descr(idx);
+    (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
+    throw_unless(error::validator_params_mismatch, val_pubkey == pubkey);
+    int config_addr = config_param(config_params::config_address).begin_parse().preload_uint(256);
+    send_validator_vote_to_config(config_addr, query_id,
+                                  begin_cell()
+                                   .store_uint(idx, 16)
+                                   .store_uint(phash, 256)
+                                   .store_uint(active_hash, 256)
+                                  .end_cell()
+                                 );
+    ;; Note, since elector and config are special contracts they do not pay fees
+    ;; thus we only enforce voter to pay for processing on Elector
+    return send_message_back(s_addr, op::response::vote_for_config_proposal, query_id, 0, 0, 64);
   }
 
   ifnot (op & (1 << 31)) {
