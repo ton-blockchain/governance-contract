@@ -1,3 +1,6 @@
+# FunC
+Contracts are expected to be build using latest version of FunC from https://github.com/SpyCheese/ton/tree/func-inline-return
+
 # Phase 1
 | Name | Agree?  | Fixed?  | Comment   |
 |------|----|----|---------------------------------------|
