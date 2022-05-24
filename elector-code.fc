@@ -294,7 +294,6 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
-  ;; elect_at~dump();
   msg_value -= ONECOIN;   ;; deduct GR$1 for sending confirmation
   if ((msg_value * 4096) < total_stake) {
     ;; stake smaller than 1/4096 of the total accumulated stakes, return
@@ -1174,7 +1173,6 @@ int announce_new_elections(slice ds, cell elect, cell credits) impure inline {
   (_, int min_stake) = config_param(config_params::validators_stakes).begin_parse().load_grams();
   ;; announce new elections
   int elect_at = t + elect_begin_before;
-  ;; elect_at~dump();
   int elect_close = elect_at - elect_end_before;
   elect = pack_elect(elect_at, elect_close, min_stake, 0, new_dict(), false, false);
   set_data(begin_cell().store_dict(elect).store_dict(credits).store_slice(ds).end_cell());
