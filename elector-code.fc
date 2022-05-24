@@ -1,6 +1,6 @@
 ;; Elector smartcontract
 
-#include "interface.fc";
+#include "constants.fc";
 
 ;; cur_elect credits past_elections grams active_id active_hash
 (cell, cell, cell, int, int, int) load_data() inline_ref {
@@ -136,20 +136,23 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 
 ;; deposit bit_price cell_price
 (int, int, int) get_complaint_prices() inline_ref {
-  cell info = config_param(13);
+  cell info = config_param(config_params::complaint_prices);
   return info.null?() ? (1 << 36, 1, 512) : info.parse_complaint_prices();
 }
 
 ;; elected_for elections_begin_before elections_end_before stake_held_for
 (int, int, int, int) get_validator_conf() {
-  slice cs = config_param(15).begin_parse();
+  ;; _ validators_elected_for:uint32 elections_start_before:uint32
+  ;; elections_end_before:uint32 stake_held_for:uint32
+  ;; = ConfigParam 15;
+  slice cs = config_param(config_params::validation_times).begin_parse();
   return (cs~load_int(32), cs~load_int(32), cs~load_int(32), cs.preload_int(32));
 }
 
 ;; next three functions return information about current validator set (config param #34)
 ;; they are borrowed from config-code.fc
 (cell, int, cell) get_current_vset() inline_ref {
-  cell vset = config_param(34);
+  cell vset = config_param(config_params::current_validators_set);
   slice cs = begin_parse(vset);
   ;; validators_ext#12 utime_since:uint32 utime_until:uint32
   ;; total:(## 16) main:(## 16) { main <= total } { main >= 1 }
@@ -400,7 +403,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 
 () config_set_confirmed(s_addr, cs, query_id, ok) impure inline_ref {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
-  int config_addr = config_param(0).begin_parse().preload_uint(256);
+  int config_addr = config_param(config_params::config_address).begin_parse().preload_uint(256);
   slice ds = get_data().begin_parse();
   cell elect = ds~load_dict();
   if ((src_wc + 1) | (src_addr != config_addr) | elect.null?()) {
@@ -513,7 +516,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 }
 
 int upgrade_code(s_addr, cs, query_id) inline_ref {
-  cell c_addr = config_param(0);
+  cell c_addr = config_param(config_params::config_address);
   if (c_addr.null?()) {
     ;; no configuration smart contract known
     return false;
@@ -804,7 +807,8 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
 }
 
 (cell, cell, int, cell, int, int) try_elect(credits, members, min_stake, max_stake, min_total_stake, max_stake_factor) {
-  slice cs = 16.config_param().begin_parse();
+  ;; _ max_validators:(## 16) max_main_validators:(## 16) min_validators:(## 16) = ConfigParam 16;
+  slice cs = config_param(config_params::validators_numbers).begin_parse();
   (int max_validators, _, int min_validators) = (cs~load_uint(16), cs~load_uint(16), cs~load_uint(16));
   cs.end_parse();
   min_validators = max(min_validators, 1);
@@ -932,11 +936,11 @@ int conduct_elections(ds, elect, credits) impure {
     ;; elections not finished yet
     return false;
   }
-  if (config_param(0).null?()) {
+  if (config_param(config_params::config_address).null?()) {
     ;; no configuration smart contract to send result to
     return postpone_elections();
   }
-  slice cs = config_param(17).begin_parse();
+  slice cs = config_param(config_params::validators_stakes).begin_parse();
   min_stake = cs~load_grams();
   int max_stake = cs~load_grams();
   int min_total_stake = cs~load_grams();
@@ -978,7 +982,7 @@ int conduct_elections(ds, elect, credits) impure {
   ;; to install the computed validator set as the next validator set
   (int elect_for, int elect_begin_before, int elect_end_before, int stake_held) = get_validator_conf();
   int start = max(now() + elect_end_before - 60, elect_at);
-  int main_validators = config_param(16).begin_parse().skip_bits(16).preload_uint(16);
+  int main_validators = config_param(config_params::validators_numbers).begin_parse().skip_bits(16).preload_uint(16);
   cell vset = begin_cell()
                .store_uint(0x12, 8)      ;; validators_ext#12
                .store_uint(start, 32)    ;; utime_since:uint32
@@ -988,7 +992,7 @@ int conduct_elections(ds, elect, credits) impure {
                .store_uint(total_weight, 64)      ;; total_weight:uint64
                .store_dict(vset)        ;; list:(HashmapE 16 ValidatorDescr)
               .end_cell();
-  int config_addr = config_param(0).begin_parse().preload_uint(256);
+  int config_addr = config_param(config_params::config_address).begin_parse().preload_uint(256);
   send_validator_set_to_config(config_addr, vset, elect_at);
   ;; add frozen to the dictionary of past elections
   cell past_elections = ds~load_dict();
@@ -1014,7 +1018,7 @@ int conduct_elections(ds, elect, credits) impure {
 
 int update_active_vset_id() impure {
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
-  int cur_hash = config_param(34).cell_hash();
+  int cur_hash = config_param(config_params::current_validators_set).cell_hash();
   if (cur_hash == active_hash) {
     ;; validator set unchanged
     return false;
@@ -1091,7 +1095,8 @@ int validator_set_installed(ds, elect, credits) impure {
   }
   ;; recover validator set hash
   int vset_hash = fs.skip_bits(64).preload_uint(256);
-  if (config_param(34).cell_hash_eq?(vset_hash) | config_param(36).cell_hash_eq?(vset_hash)) {
+  if (config_param(config_params::current_validators_set).cell_hash_eq?(vset_hash) |
+      config_param(config_params::next_validators_set).cell_hash_eq?(vset_hash)) {
     ;; this validator set has been installed, forget elections
     set_data(begin_cell()
       .store_int(false, 1)   ;; forget current elections
@@ -1127,18 +1132,18 @@ int check_unfreeze() impure {
 }
 
 int announce_new_elections(slice ds, cell elect, cell credits) impure {
-  cell next_vset = config_param(36);   ;; next validator set
+  cell next_vset = config_param(config_params::next_validators_set);   ;; next validator set
   ifnot (next_vset.null?()) {
     ;; next validator set exists, no elections needed
     return false;
   }
-  int elector_addr = config_param(1).begin_parse().preload_uint(256);
+  int elector_addr = config_param(config_params::elector_address).begin_parse().preload_uint(256);
   (int my_wc, int my_addr) = my_address().parse_std_addr();
   if ((my_wc + 1) | (my_addr != elector_addr)) {
     ;; this smart contract is not the elections smart contract anymore, no new elections
     return false;
   }
-  cell cur_vset = config_param(34);  ;; current validator set
+  cell cur_vset = config_param(config_params::current_validators_set);  ;; current validator set
   if (cur_vset.null?()) {
     return false;
   }
@@ -1161,7 +1166,7 @@ int announce_new_elections(slice ds, cell elect, cell credits) impure {
     t = t0;
   }
   ;; get stake parameters
-  (_, int min_stake) = config_param(17).begin_parse().load_grams();
+  (_, int min_stake) = config_param(config_params::validators_stakes).begin_parse().load_grams();
   ;; announce new elections
   int elect_at = t + elect_begin_before;
   ;; elect_at~dump();

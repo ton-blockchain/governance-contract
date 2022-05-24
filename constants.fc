@@ -30,12 +30,6 @@ const int tag::stake_application = 0x654c5074;
 const int tag::complaint = 0x56744350;
 const int tag::ed25519_pubkey = 0x8e81278a;
 
-const int special_params::set_config_key = -999;
-const int special_params::update_config_code = -1000;
-const int special_params::update_elector_code = -1001;
-const int special_params::signed_votes_disabled = -1002;
-const int special_params::config_multikey = -1003;
-
 const int error::proposal::old_mismatch = 0xe2646356;
 const int error::proposal::mandatory_nullified = 0xcd506e6c;
 const int error::proposal::too_deep = 0xc2616456;
@@ -48,3 +42,21 @@ const int error::unauthorized = 0x33440022; ;;TODO
 const int error::expired_vset = 0x13550021;
 
 const int ONECOIN = 1000000000;
+
+const int config_params::config_address = 0;
+const int config_params::elector_address = 1;
+const int config_params::mandatory_params = 9;
+const int config_params::critical_params = 10;
+const int config_params::voting_setup = 11;
+const int config_params::complaint_prices = 13;
+const int config_params::validation_times = 15;
+const int config_params::validators_numbers = 16;
+const int config_params::validators_stakes = 17;
+const int config_params::current_validators_set = 34;
+const int config_params::next_validators_set = 36;
+
+const int special_params::set_config_key = -999;
+const int special_params::update_config_code = -1000;
+const int special_params::update_elector_code = -1001;
+const int special_params::signed_votes_disabled = -1002;
+const int special_params::config_multikey = -1003;

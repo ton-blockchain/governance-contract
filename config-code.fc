@@ -1,6 +1,6 @@
 ;; Simple configuration smart contract
 
-#include "interface.fc";
+#include "constants.fc";
 
 () set_conf_param(int index, cell value) impure {
   slice cs = get_data().begin_parse();
@@ -54,7 +54,7 @@
 
 ;; (min_tot_rounds, max_tot_rounds, min_wins, max_losses, min_store_sec, max_store_sec, bit_price, cell_price)
 (int, int, int, int, int, int, int, int) get_vote_config(int critical?) inline {
-  return get_vote_config_internal(critical?, config_param(11));
+  return get_vote_config_internal(critical?, config_param(config_params::voting_setup));
 }
 
 (int, int) check_validator_set(cell vset) {
@@ -99,7 +99,7 @@
 
 ;; forward a message to elector smart contract to make it upgrade its code
 () change_elector_code(slice cs) impure {
-  int dest_addr = config_param(1).begin_parse().preload_uint(256);
+  int dest_addr = config_param(config_params::elector_address).begin_parse().preload_uint(256);
   int query_id = now();
   send_raw_message(begin_cell()                ;; see "Message X" description in crypto/block/block.tlb
                                                ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
@@ -164,7 +164,7 @@
 }
 
 (cell, int, cell) get_current_vset() inline_ref {
-  cell vset = config_param(34);
+  cell vset = config_param(config_params::current_validators_set);
   slice cs = begin_parse(vset);
   ;; validators_ext#12 utime_since:uint32 utime_until:uint32
   ;; total:(## 16) main:(## 16) { main <= total } { main >= 1 }
@@ -465,7 +465,8 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
       return (0, error::proposal::old_mismatch); ;; bad current value
     }
   } else {
-    cell m_params = config_param(9);
+    ;; _ mandatory_params:(Hashmap 32 True) = ConfigParam 9;
+    cell m_params = config_param(config_params::mandatory_params);
     (_, int found?) = m_params.idict_get?(32, param_id);
     if (found?) {
       return (0, error::proposal::mandatory_nullified); ;; cannot set mandatory parameter to null
@@ -475,7 +476,8 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     return (0, error::proposal::too_deep);
   }
   ifnot (critical?) {
-    cell crit_params = config_param(10);
+    ;; _ critical_params:(Hashmap 32 True) = ConfigParam 10;
+    cell crit_params = config_param(config_params::critical_params);
     (_, int found?) = crit_params.idict_get?(32, param_id);
     if (found?) {
       return (0, error::proposal::critical_flag_missing); ;; trying to set a critical parameter without critical flag
@@ -557,7 +559,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
     ;; set next validator set
     cell vset = in_msg~load_ref();
     in_msg.end_parse();
-    cell elector_param = config_param(1);
+    cell elector_param = config_param(config_params::elector_address);
     int elector_addr = cell_null?(elector_param) ? -1 : elector_param.begin_parse().preload_uint(256);
     int ok = false;
     if (src_addr == elector_addr) {
@@ -603,7 +605,7 @@ cell scan_random_proposal(cell vote_dict) inline_ref {
   }
   if (tag == op::vote_for_config_proposal_from_elector) {
     (int idx, int phash, int vset_id) = (in_msg~load_uint(16), in_msg~load_uint(256), in_msg~load_uint(256));
-    cell elector_param = config_param(1);
+    cell elector_param = config_param(config_params::elector_address);
     int elector_addr = cell_null?(elector_param) ? -1 : elector_param.begin_parse().preload_uint(256);
     (cell cur_vset, int total_weight, cell validators) = get_current_vset();
     int cur_vset_id = cur_vset.cell_hash();
