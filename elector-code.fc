@@ -141,7 +141,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 }
 
 ;; elected_for elections_begin_before elections_end_before stake_held_for
-(int, int, int, int) get_validator_conf() {
+(int, int, int, int) get_validator_conf() inline_ref {
   ;; _ validators_elected_for:uint32 elections_start_before:uint32
   ;; elections_end_before:uint32 stake_held_for:uint32
   ;; = ConfigParam 15;
@@ -166,7 +166,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (vset, total_weight, dict);
 }
 
-(slice, int) get_validator_descr(int idx) inline_ref {
+(slice, int) get_validator_descr(int idx) inline {
   (cell vset, int total_weight, cell dict) = get_current_vset();
   (slice value, _) = dict.udict_get?(16, idx);
   return (value, total_weight);
@@ -213,11 +213,11 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return send_message_back(addr, op::response::stake_rejected, query_id, reason, 0, 64);
 }
 
-() send_confirmation(addr, query_id, comment) impure inline_ref {
+() send_confirmation(addr, query_id, comment) impure inline {
   return send_message_back(addr, op::response::stake_accepted, query_id, comment, ONECOIN, 2);
 }
 
-() send_validator_set_to_config(config_addr, vset, query_id) impure inline_ref {
+() send_validator_set_to_config(config_addr, vset, query_id) impure inline {
   builder msg = begin_cell()                ;; see "Message X" description in crypto/block/block.tlb
                                             ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
                   .store_uint(0xc4ff, 17)   ;; 0xc4ff = 0b01100010011111111 = {0, 1, 1, 0, 00, 10, 0, 11111111}
@@ -256,7 +256,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (credits, ());
 }
 
-() process_new_stake(s_addr, msg_value, cs, query_id) impure inline_ref {
+() process_new_stake(s_addr, msg_value, cs, query_id) impure inline {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   slice ds = get_data().begin_parse();
   cell elect = ds~load_dict();
@@ -342,7 +342,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return ();
 }
 
-(cell, int) unfreeze_without_bonuses(credits, frozen_dict, total_stake) inline_ref {
+(cell, int) unfreeze_without_bonuses(credits, frozen_dict, total_stake) inline {
   int total = int recovered = 0;
   int pubkey = -1;
   do {
@@ -362,7 +362,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (credits, recovered);
 }
 
-(cell, int) unfreeze_with_bonuses(credits, frozen_dict, total_stake, tot_bonuses) inline_ref {
+(cell, int) unfreeze_with_bonuses(credits, frozen_dict, total_stake, tot_bonuses) inline {
   int total = int recovered = int returned_bonuses = 0;
   int pubkey = -1;
   do {
@@ -403,7 +403,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (credits, past_elections, unused_prizes);
 }
 
-() config_set_confirmed(s_addr, cs, query_id, ok) impure inline_ref {
+() config_set_confirmed(s_addr, cs, query_id, ok) impure inline {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   int config_addr = config_param(config_params::config_address).begin_parse().preload_uint(256);
   slice ds = get_data().begin_parse();
@@ -517,7 +517,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return send_message_back(s_addr, op::response::new_code_set, query_id, op, 0, 64);
 }
 
-int upgrade_code(s_addr, cs, query_id) inline_ref {
+int upgrade_code(s_addr, cs, query_id) inline {
   cell c_addr = config_param(config_params::config_address);
   if (c_addr.null?()) {
     ;; no configuration smart contract known
@@ -545,7 +545,7 @@ int compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price)
   return pps * expire_in + deposit;
 }
 
-int register_complaint(s_addr, complaint, msg_value) {
+int register_complaint(s_addr, complaint, msg_value) inline {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   if (src_wc + 1) { ;; not from masterchain, return error
     return -1;
@@ -651,7 +651,7 @@ int register_complaint(s_addr, complaint, msg_value) {
   return (credits, frozen_dict, fine - reward, fine);
 }
 
-(cell, cell, int) register_vote(complaints, chash, idx, weight) inline_ref {
+(cell, cell, int) register_vote(complaints, chash, idx, weight) inline {
   (slice cstatus, int found?) = complaints.udict_get?(256, chash);
   ifnot (found?) {
     ;; complaint not found
@@ -689,7 +689,7 @@ int register_complaint(s_addr, complaint, msg_value) {
   return (complaints, null(), 1);
 }
 
-int proceed_register_vote(election_id, chash, idx, weight) impure inline_ref {
+int proceed_register_vote(election_id, chash, idx, weight) impure inline {
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
   (slice fs, int f) = past_elections.udict_get?(32, election_id);
   ifnot (f) {  ;; election not found
@@ -928,7 +928,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
   return (credits, vset, total_weight, frozen_dict, total_true_stakes, best_cutoff);
 }
 
-int conduct_elections(ds, elect, credits) impure {
+int conduct_elections(ds, elect, credits) impure inline {
   (int elect_at,
    int elect_close,
    int min_stake,
@@ -1079,7 +1079,7 @@ int cell_hash_eq?(cell vset, int expected_vset_hash) inline_ref {
   return vset.null?() ? false : cell_hash(vset) == expected_vset_hash;
 }
 
-int validator_set_installed(ds, elect, credits) impure {
+int validator_set_installed(ds, elect, credits) impure inline {
   (int elect_at,
    int elect_close,
    int min_stake,
@@ -1114,7 +1114,7 @@ int validator_set_installed(ds, elect, credits) impure {
   return false;
 }
 
-int check_unfreeze() impure {
+int check_unfreeze() impure inline {
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
   int id = -1;
   do {
@@ -1135,7 +1135,7 @@ int check_unfreeze() impure {
   return ~ id.null?();
 }
 
-int announce_new_elections(slice ds, cell elect, cell credits) impure {
+int announce_new_elections(slice ds, cell elect, cell credits) impure inline {
   cell next_vset = config_param(config_params::next_validators_set);   ;; next validator set
   ifnot (next_vset.null?()) {
     ;; next validator set exists, no elections needed
