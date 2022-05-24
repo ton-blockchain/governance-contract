@@ -540,6 +540,11 @@ int upgrade_code(s_addr, cs, query_id) inline_ref {
   return true;
 }
 
+int compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price) inline_ref {
+  int pps = (bits + 1024) * bit_price + (refs + 2) * cell_price;
+  return pps * expire_in + deposit;
+}
+
 int register_complaint(s_addr, complaint, msg_value) {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   if (src_wc + 1) { ;; not from masterchain, return error
@@ -570,10 +575,9 @@ int register_complaint(s_addr, complaint, msg_value) {
   created_at = now();
   ;; compute complaint storage/creation price
   (int deposit, int bit_price, int cell_price) = get_complaint_prices();
-  (_, int bits, int refs) = slice_compute_data_size(complaint, 4096);
-  int pps = (bits + 1024) * bit_price + (refs + 2) * cell_price;
-  paid = pps * expire_in + deposit;
-  if (msg_value < paid + (1 << 30)) { ;; not enough money
+  var (_, bits, refs) = slice_compute_data_size(complaint, 4096); ;; 4096 is max_cells
+  int paid = compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price);
+  if (msg_value < paid + ONECOIN) { ;; not enough money
     return -5;
   }
   ;; re-pack modified complaint
@@ -1383,7 +1387,6 @@ tuple list_complaints(int election_id) method_id {
 int complaint_storage_price(int bits, int refs, int expire_in) method_id {
   ;; compute complaint storage/creation price
   (int deposit, int bit_price, int cell_price) = get_complaint_prices();
-  int pps = (bits + 1024) * bit_price + (refs + 2) * cell_price;
-  int paid = pps * expire_in + deposit;
-  return paid + (1 << 30);
+  int paid = compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price);
+  return paid + ONECOIN;
 }
