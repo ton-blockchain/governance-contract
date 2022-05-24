@@ -1247,7 +1247,7 @@ int check_unfreeze() impure inline {
   return ~ id.null?();
 }
 
-int announce_new_elections(slice ds, cell elect, cell credits) impure inline {
+int announce_new_elections(slice ds, cell credits) impure inline {
   cell next_vset = config_param(config_params::next_validators_set);   ;; next validator set
   ifnot (next_vset.null?()) {
     ;; next validator set exists, no elections needed
@@ -1292,7 +1292,7 @@ int announce_new_elections(slice ds, cell elect, cell credits) impure inline {
     return false;
   }
   int elect_close = elect_at - elect_end_before;
-  elect = pack_elect(elect_at, elect_close, min_stake, 0, new_dict(), false, false);
+  cell elect = pack_elect(elect_at, elect_close, min_stake, 0, new_dict(), false, false);
   set_data(begin_cell().store_dict(elect).store_dict(credits).store_slice(ds).end_cell());
   return true;
 }
@@ -1306,7 +1306,7 @@ int announce_new_elections(slice ds, cell elect, cell credits) impure inline {
     throw_if(0, conduct_elections(ds, elect, credits));  ;; elections conducted, exit
     throw_if(0, validator_set_installed(ds, elect, credits));  ;; validator set installed, current elections removed
   } else {
-    throw_if(0, announce_new_elections(ds, elect, credits));  ;; new elections announced, exit
+    throw_if(0, announce_new_elections(ds, credits));  ;; new elections announced, exit
   }
   throw_if(0, update_active_vset_id());  ;; active validator set id updated, exit
   check_unfreeze();
