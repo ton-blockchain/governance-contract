@@ -260,7 +260,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   slice ds = get_data().begin_parse();
   cell elect = ds~load_dict();
-  if (elect.null?() | (src_wc + 1)) {
+  if (elect.null?() | (src_wc != - 1)) {
     ;; no elections active, or source is not in masterchain
     ;; bounce message
     return return_stake(s_addr, query_id, 0);
@@ -296,7 +296,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
    int finished) = elect.unpack_elect();
   ;; elect_at~dump();
   msg_value -= ONECOIN;   ;; deduct GR$1 for sending confirmation
-  if ((msg_value << 12) < total_stake) {
+  if ((msg_value * 4096) < total_stake) {
     ;; stake smaller than 1/4096 of the total accumulated stakes, return
     return return_stake(s_addr, query_id, 2);
   }
@@ -408,7 +408,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   int config_addr = config_param(config_params::config_address).begin_parse().preload_uint(256);
   slice ds = get_data().begin_parse();
   cell elect = ds~load_dict();
-  if ((src_wc + 1) | (src_addr != config_addr) | elect.null?()) {
+  if ((src_wc != - 1) | (src_addr != config_addr) | elect.null?()) {
     ;; not from config smc, somebody's joke?
     ;; or no elections active (or just completed)
     return ();
@@ -443,7 +443,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 () process_simple_transfer(s_addr, msg_value) impure inline_ref {
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
-  if (src_addr | (src_wc + 1) | (active_id == 0)) {
+  if (src_addr | (src_wc != - 1) | (active_id == 0)) {
     ;; simple transfer to us (credit "nobody's" account)
     ;; (or no known active validator set)
     grams += msg_value;
@@ -472,7 +472,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
 
 () recover_stake(op, s_addr, cs, query_id) impure inline_ref {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
-  if (src_wc + 1) {
+  if (src_wc != - 1) {
     ;; not from masterchain, return error
     return send_message_back(s_addr, op::not_allowed, query_id, op, 0, 64);
   }
@@ -525,7 +525,7 @@ int upgrade_code(s_addr, cs, query_id) inline {
   }
   int config_addr = c_addr.begin_parse().preload_uint(256);
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
-  if ((src_wc + 1) | (src_addr != config_addr)) {
+  if ((src_wc != - 1) | (src_addr != config_addr)) {
     ;; not from configuration smart contract, return error
     return false;
   }
@@ -547,7 +547,7 @@ int compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price)
 
 int register_complaint(s_addr, complaint, msg_value) inline {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
-  if (src_wc + 1) { ;; not from masterchain, return error
+  if (src_wc != - 1) { ;; not from masterchain, return error
     return -1;
   }
   if (complaint.slice_depth() >= 128) {
@@ -720,7 +720,8 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline {
   ;; do nothing for internal messages
   slice cs = in_msg_cell.begin_parse();
   int flags = cs~load_uint(4);  ;; int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
-  if (flags & 1) {
+  int is_bounced = flags & 1;
+  if (is_bounced) {
     ;; ignore all bounced messages
     return ();
   }

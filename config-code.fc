@@ -222,7 +222,7 @@
   }
   cell cparams = cfg_dict.idict_get_ref(32, 10);  ;; critical parameters
   (_, found?) = cparams.idict_get?(32, param_id);
-  if (found? < critical?) {
+  if (found? & (~ critical?)) {
     ;; trying to set a critical parameter after a non-critical voting
     return (cfg_dict, 0, null());
   }
@@ -288,7 +288,9 @@ slice update_proposal_status(slice rest, int weight_remaining, int critical?) in
   (int min_tot_rounds, int max_tot_rounds, int min_wins, int max_losses, _, _, _, _)
      = get_vote_config(critical?);
   (int rounds_remaining, int wins, int losses) = (rest~load_uint(8), rest~load_uint(8), rest~load_uint(8));
-  losses -= (weight_remaining >= 0);
+  if (weight_remaining >= 0) {
+    losses += 1;
+  }
   if (losses > max_losses) {
     ;; lost too many times
     return null();
@@ -523,7 +525,7 @@ cell scan_random_proposal(cell vote_dict) inline {
     }
     ;; recompute price
     price = pps * (expire_at - expires + 16384);
-    if (msg_value - price < (1 << 30)) {
+    if (msg_value - price < ONECOIN) {
       return (0, error::proposal::insufficient_fee);
     }
     ;; update expiration time
@@ -531,7 +533,7 @@ cell scan_random_proposal(cell vote_dict) inline {
     store_data(cfg_dict, stored_seqno, public_key, vote_dict);
     return (price, 0);
   }
-  if (msg_value - price < (1 << 30)) {
+  if (msg_value - price < ONECOIN) {
     return (0, error::proposal::insufficient_fee);
   }
   ;; obtain current validator set data
@@ -550,7 +552,8 @@ cell scan_random_proposal(cell vote_dict) inline {
   int flags = cs~load_uint(4);  ;; int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
   slice s_addr = cs~load_msg_addr();
   (int src_wc, int src_addr) = s_addr.parse_std_addr();
-  if ((src_wc + 1) | (flags & 1) | in_msg.slice_empty?()) {
+  int is_bounced = flags & 1;
+  if ((src_wc != - 1) | is_bounced | in_msg.slice_empty?()) {
     ;; source not in masterchain, or a bounced message, or a simple transfer
     return ();
   }
@@ -571,7 +574,7 @@ cell scan_random_proposal(cell vote_dict) inline {
       ok = (t_since > t) & (t_until > t_since);
     }
     if (ok) {
-      set_conf_param(36, vset);
+      set_conf_param(config_params::next_validators_set, vset);
       ;; send confirmation
       return send_answer(s_addr, query_id, op::response::update_vset_confirm, 64);
     } else {
