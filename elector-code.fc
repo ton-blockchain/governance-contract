@@ -841,7 +841,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
   if (applications_number < min_validators) {
     return (credits, new_dict(), 0, new_dict(), 0, 0);
   }
-  tuple applications_list = nil;
+  tuple applications_list = null();
   do {
     (slice key, slice cs, int f) = sorting_dict~dict::delete_get_min(128 + 32 + 256);
     if (f) {
@@ -1220,7 +1220,7 @@ int participates_in(int validator_pubkey) method_id {
 tuple participant_list() method_id {
   cell elect = get_data().begin_parse().preload_dict();
   if (elect.null?()) {
-    return nil;
+    return null();
   }
   (int elect_at,
    int elect_close,
@@ -1229,7 +1229,7 @@ tuple participant_list() method_id {
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
-  tuple list = nil;
+  tuple list = null();
   int id = (1 << 255) + ((1 << 255) - 1);
   do {
     (id, slice fs, int f) = members.udict_get_prev?(256, id);
@@ -1245,7 +1245,7 @@ tuple participant_list() method_id {
 (int, int, int, int, tuple, int, int) participant_list_extended() method_id {
   cell elect = get_data().begin_parse().preload_dict();
   if (elect.null?()) {
-    return (0, 0, 0, 0, nil, 0, 0);
+    return (0, 0, 0, 0, null(), 0, 0);
   }
   (int elect_at,
    int elect_close,
@@ -1254,7 +1254,7 @@ tuple participant_list() method_id {
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
-  tuple list = nil;
+  tuple list = null();
   int id = (1 << 255) + ((1 << 255) - 1);
   do {
     (id, slice cs, int f) = members.udict_get_prev?(256, id);
