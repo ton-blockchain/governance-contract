@@ -680,15 +680,13 @@ int register_complaint(s_addr, complaint, msg_value) {
   voters~udict_set_builder(16, idx, begin_cell().store_uint(now(), 32));
   int old_wr = weight_remaining;
   weight_remaining -= weight;
-  old_wr ^= weight_remaining;
   ;; save voters and weight_remaining
   complaints~udict_set_builder(256, chash, pack_complaint_status(complaint, voters, vset_id, weight_remaining));
-  if (old_wr >= 0) {
-    ;; not enough votes or already accepted
-    return (complaints, null(), 1);
+  if( (old_wr > 0) & (weight_remaining < 0)) {
+    ;; complaint wins, prepare punishment
+    return (complaints, complaint, 2);
   }
-  ;; complaint wins, prepare punishment
-  return (complaints, complaint, 2);
+  return (complaints, null(), 1);
 }
 
 int proceed_register_vote(election_id, chash, idx, weight) impure inline_ref {
