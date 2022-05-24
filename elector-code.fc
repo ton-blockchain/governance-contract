@@ -959,9 +959,10 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
   do {
     (slice key, slice cs, int f) = sorting_dict~dict::delete_get_min(128 + 32 + 256);
     if (f) {
-      (int stake, _, int pubkey) = (min(key~load_uint(128), max_stake), key~load_uint(32), key.preload_uint(256));
+      int submitted_stake = key~load_uint(128);
+      (int stake, _, int pubkey) = (min(submitted_stake, max_stake), key~load_uint(32), key.preload_uint(256));
       (int max_f, _, int adnl_addr) = (cs~load_uint(32), cs~load_uint(256), cs.preload_uint(256));
-      applications_list = cons([stake, max_f, pubkey, adnl_addr], applications_list);
+      applications_list = cons([stake, max_f, pubkey, adnl_addr, submitted_stake], applications_list);
     }
   } until (~ f);
   ;; applications_list is the list of all stakes in decreasing order
@@ -999,7 +1000,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
   cell vset = new_dict();
   cell frozen_dict = new_dict();
   do {
-    [int stake, int max_f, int pubkey, int adnl_addr] = applications_list~list_next();
+    [int stake, int max_f, int pubkey, int adnl_addr, int submitted_stake] = applications_list~list_next();
     ;; lookup source address first
     (slice val, int f) = members.udict_get?(256, pubkey);
     throw_unless(61, f);
@@ -1028,6 +1029,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
                   .store_grams(true_stake)
                   .store_int(false, 1));
     }
+    stake += (submitted_stake - stake); ;; it adds stake excess that is higher than max_stake
     if (stake) {
       ;; non-zero unused part of the stake, credit to the source address
       credits~credit_to(src_addr, stake);
