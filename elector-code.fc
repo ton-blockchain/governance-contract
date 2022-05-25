@@ -628,23 +628,24 @@ int compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price)
   return pps * expire_in + deposit;
 }
 
-int register_complaint(s_addr, complaint, msg_value) inline {
+;; paid_price, error
+(int, int) register_complaint(s_addr, complaint, msg_value) inline {
   (int src_wc, int src_addr) = parse_std_addr(s_addr);
   if (src_wc != - 1) { ;; not from masterchain, return error
-    return -1;
+    return (0, 1);
   }
   if (complaint.slice_depth() >= 128) {
-    return -3;  ;; invalid complaint
+    return (0, 3);  ;; invalid complaint
   }
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
   int election_id = complaint~load_uint(32);
   (slice fs, int f) = past_elections.udict_get?(32, election_id);
   ifnot (f) {  ;; election not found
-    return -2;
+    return (0, 2);
   }
   int expire_in = fs.preload_uint(32) - now();
   if (expire_in <= 0) { ;; already expired
-    return -4;
+    return (0, 4);
   }
   (int validator_pubkey,
    cell description,
@@ -661,7 +662,7 @@ int register_complaint(s_addr, complaint, msg_value) inline {
   var (_, bits, refs) = slice_compute_data_size(complaint, 4096); ;; 4096 is max_cells
   int paid = compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price);
   if (msg_value < paid + ONECOIN) { ;; not enough money
-    return -5;
+    return (0, 5);
   }
   ;; re-pack modified complaint
   cell complaint = pack_complaint(validator_pubkey, description, created_at, severity, reward_addr, paid, suggested_fine, suggested_fine_part).end_cell();
@@ -674,23 +675,23 @@ int register_complaint(s_addr, complaint, msg_value) inline {
    cell complaints) = unpack_past_election(fs);
   (slice fs, int f) = frozen_dict.udict_get?(256, validator_pubkey);
   ifnot (f) { ;; no such validator, cannot complain
-    return -6;
+    return (0, 6);
   }
   fs~skip_bits(256 + 64);   ;; addr weight
   int validator_stake = fs~load_grams();
   int fine = suggested_fine + muldiv(validator_stake, suggested_fine_part, 1 << 32);
   if (fine > validator_stake) {  ;; validator's stake is less than suggested fine
-    return -7;
+    return (0, 7);
   }
   if (fine <= paid) {  ;; fine is less than the money paid for creating complaint
-    return -8;
+    return (0, 8);
   }
   ;; create complaint status
   builder cstatus = pack_complaint_status(complaint, null(), 0, 0);
   ;; save complaint status into complaints
   int cpl_id = complaint.cell_hash();
   ifnot (complaints~udict_add_builder?(256, cpl_id, cstatus)) {
-    return -9;   ;; complaint already exists
+    return (0, 9);   ;; complaint already exists
   }
   ;; pack past election info
   past_elections~udict_set_builder(32, election_id, pack_past_election(unfreeze_at, stake_held, vset_hash, frozen_dict, total_stake, bonuses, complaints));
@@ -698,7 +699,7 @@ int register_complaint(s_addr, complaint, msg_value) inline {
   ;; next line can be commented, but it saves a lot of stack manipulations
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
   store_data(elect, credits, past_elections, grams, active_id, active_hash);
-  return paid;
+  return (paid, 0);
 }
 
 (cell, cell, int, int) punish(credits, frozen_dict, complaint) inline_ref {
@@ -839,13 +840,12 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline {
   }
   if (op == op::new_complaint) {
     ;; new complaint
-    int price = register_complaint(s_addr, in_msg, msg_value);
+    (int paid, int error) = register_complaint(s_addr, in_msg, msg_value);
     int mode = 64;
-    int ans_tag = - price;
-    if (price >= 0) {
+    int ans_tag = error;
+    ifnot (error) {
       ;; ok, debit price
-      raw_reserve(price, 4);
-      ans_tag = 0;
+      raw_reserve(paid, 4);
       mode = 128;
     }
     return send_message_back(s_addr, ans_tag + op::response::new_complaint, query_id, op, 0, mode);
