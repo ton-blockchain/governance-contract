@@ -1259,7 +1259,7 @@ int announce_new_elections(slice ds, cell credits) impure inline {
   }
   int elector_addr = config_param(config_params::elector_address).begin_parse().preload_uint(256);
   (int my_wc, int my_addr) = my_address().parse_std_addr();
-  if ((my_wc + 1) | (my_addr != elector_addr)) {
+  if ((my_wc != - 1) | (my_addr != elector_addr)) {
     ;; this smart contract is not the elections smart contract anymore, no new elections
     return false;
   }
