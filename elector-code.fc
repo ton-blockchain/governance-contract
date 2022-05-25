@@ -1001,6 +1001,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
   cell frozen_dict = new_dict();
   do {
     [int stake, int max_f, int pubkey, int adnl_addr, int submitted_stake] = applications_list~list_next();
+    int excess = submitted_stake - stake;
     ;; lookup source address first
     (slice val, int f) = members.udict_get?(256, pubkey);
     throw_unless(61, f);
@@ -1029,7 +1030,7 @@ int compute_total_stake(tuple applications_list, int cutoff, int m_stake) inline
                   .store_grams(true_stake)
                   .store_int(false, 1));
     }
-    stake += (submitted_stake - stake); ;; it adds stake excess that is higher than max_stake
+    stake += excess; ;; it adds stake excess that is higher than max_stake
     if (stake) {
       ;; non-zero unused part of the stake, credit to the source address
       credits~credit_to(src_addr, stake);
