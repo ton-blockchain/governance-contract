@@ -445,7 +445,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   return (credits, recovered);
 }
 
-(cell, int) unfreeze_with_bonuses(credits, frozen_dict, total_stake, tot_bonuses) inline {
+(cell, int) unfreeze_with_bonuses(credits, frozen_dict, total_stake, total_bonuses) inline {
   int total = int recovered = int returned_bonuses = 0;
   int pubkey = -1;
   do {
@@ -456,15 +456,15 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
       if (banned) {
         recovered += stake;
       } else {
-        int bonus = muldiv(tot_bonuses, stake, total_stake);
+        int bonus = muldiv(total_bonuses, stake, total_stake);
         returned_bonuses += bonus;
         credits~credit_to(addr, stake + bonus);
       }
       total += stake;
     }
   } until (~ f);
-  throw_unless(59, (total == total_stake) & (returned_bonuses <= tot_bonuses));
-  return (credits, recovered + tot_bonuses - returned_bonuses);
+  throw_unless(59, (total == total_stake) & (returned_bonuses <= total_bonuses));
+  return (credits, recovered + total_bonuses - returned_bonuses);
 }
 
 (cell, cell, int) unfreeze_all(credits, past_elections, elect_id) inline_ref {
