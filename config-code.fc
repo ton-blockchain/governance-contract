@@ -28,6 +28,10 @@
 ;; (min_tot_rounds, max_tot_rounds, min_wins, max_losses, min_store_sec, max_store_sec, bit_price, cell_price)
 (int, int, int, int, int, int, int, int) parse_vote_config(cell c) inline {
   slice cs = c.begin_parse();
+  ;; cfg_vote_cfg#36 min_tot_rounds:uint8 max_tot_rounds:uint8
+  ;;                 min_wins:uint8 max_losses:uint8
+  ;;                 min_store_sec:uint32 max_store_sec:uint32
+  ;;                 bit_price:uint32 cell_price:uint32 = ConfigProposalSetup;
   throw_unless(44, cs~load_uint(8) == 0x36);
   (int, int, int, int, int, int, int, int) res = (cs~load_uint(8),
                                                   cs~load_uint(8),
@@ -195,7 +199,7 @@
 ;; c -> (param-id param-cell maybe-hash)
 (int, cell, int) parse_config_proposal(cell c) inline_ref {
   slice cs = c.begin_parse();
-  throw_unless(44, cs~load_int(8) == 0xf3 - 0x100);
+  throw_unless(44, cs~load_uint(8) == 0xf3);
   (int id, cell val, int hash) = (cs~load_int(32), cs~load_maybe_ref(), cs~load_int(1));
   if (hash) {
     hash = cs~load_uint(256);
@@ -280,7 +284,7 @@
 ;;  voters:(HashmapE 16 True) remaining_weight:int64 validator_set_id:uint256
 ;;  rounds_remaining:uint8 wins:uint8 losses:uint8 = ConfigProposalStatus;
 (int, cell, int, cell, int, int, slice) unpack_proposal_status(slice cs) inline_ref {
-  throw_unless(44, cs~load_int(8) == 0xce - 0x100);
+  throw_unless(44, cs~load_uint(8) == 0xce);
   return (cs~load_uint(32), cs~load_ref(), cs~load_int(1), cs~load_dict(), cs~load_int(64), cs~load_uint(256), cs);
 }
 

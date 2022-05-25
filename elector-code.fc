@@ -154,7 +154,7 @@ builder pack_complaint_status(cell complaint, cell voters, int vset_id, int weig
 ;;   created_at:uint32 severity:uint8 reward_addr:uint256 paid:Grams suggested_fine:Grams
 ;;   suggested_fine_part:uint32 = ValidatorComplaint;
 (int, cell, int, int, int, int, int, int) unpack_complaint(slice cs) inline_ref {
-  throw_unless(9, cs~load_int(8) == 0xbc - 0x100);
+  throw_unless(9, cs~load_uint(8) == 0xbc);
   (int, cell, int, int, int, int, int, int) res =  (cs~load_uint(256),
                                                     cs~load_ref(),
                                                     cs~load_uint(32),
@@ -201,7 +201,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   ;; elections_end_before:uint32 stake_held_for:uint32
   ;; = ConfigParam 15;
   slice cs = config_param(config_params::validation_times).begin_parse();
-  (int, int, int, int) res = (cs~load_int(32), cs~load_int(32), cs~load_int(32), cs~load_int(32));
+  (int, int, int, int) res = (cs~load_uint(32), cs~load_uint(32), cs~load_uint(32), cs~load_uint(32));
   cs.end_parse();
   return res;
 }
