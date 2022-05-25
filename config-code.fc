@@ -365,7 +365,7 @@ builder begin_pack_proposal_status(int expires, cell proposal, int critical?, ce
   int old_wr = weight_remaining;
   weight_remaining -= weight;
   if ( (old_wr < 0) |  ;;proposal already accepted in this round
-       (weight_remaining > 0))  { ;; not enough votes
+       (weight_remaining >= 0))  { ;; not enough votes
     ;; simply update weight_remaining
     vote_dict~udict_set_builder(256, phash, begin_pack_proposal_status(expires, proposal, critical?, voters, weight_remaining, vset_id).store_slice(rest));
     return (vote_dict, null(), 2);
