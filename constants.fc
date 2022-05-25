@@ -20,7 +20,7 @@ const int op::response::stake_accepted = 0xf374484c;
 const int op::new_stake = 0x4e73744b;
 const int op::recover_stake = 0x47657424;
 const int op::new_complaint = 0x52674370;
-const int op::response::new_complaint = (op::new_complaint + 0x80000000);
+const int op::response::new_complaint = 0xf2676350;
 const int op::vote_for_complaint = 0x56744370;
 
 const int op::set_new_code = 0x4e436f64;
