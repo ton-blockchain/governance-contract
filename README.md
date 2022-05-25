@@ -30,7 +30,7 @@ Contracts are expected to be build using latest version of FunC from https://git
 |ELE-14| ✔️  |  ✔️ |   |
 |ELE-15| ✔️  |  ✔️ |   |
 |ELE-16| ✔️  |  ✔️ |   |
-|SMA-01| ✔️  |  ✔️ | Partially solved by multisignature scheme. There also could be time-lock and/or time-lock which can be opened immediately by majority of validators signature  |
+|SMA-01| ✔️  |  ✔️ | Partially solved by multisignature scheme. There also could be time-lock and/or time-lock which can be opened immediately by majority of validators signature. The reason why not to make emergency update via internal message from Emergency smart-contract which may implement arbitrary logic is as follows: sometimes network conditions hinder delivery of internal messages, see [April 17, 2022 event](https://ton.org/docs/#/smart-contracts/governance?id=emergency-update). That way, emergency mechanism should require as little interaction as possible.  |
 |SMA-01| ✔️  |  ✔️ |   |
 |SMA-02| ✔️  |  〰️ |  The proper fix will require addition of `global_id` to TVM context, then it can be used for cross-chain replay protection. We will neglect absence of cross-chain protection for now. Cross-round replay attack will be eliminated when the only option to vote will be voting-through-internal-message-to-elector |
 |SMA-03| ✔️  |  ✔️ |   |
