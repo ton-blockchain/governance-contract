@@ -773,7 +773,7 @@ int compute_storage_price(bits, refs, expire_in, deposit, bit_price, cell_price)
   return (complaints, null(), 1);
 }
 
-int proceed_register_vote(election_id, chash, idx, weight) impure inline {
+int proceed_register_vote(election_id, chash, idx, weight, val_pubkey, src_addr) impure inline {
   (cell elect, cell credits, cell past_elections, int grams, int active_id, int active_hash) = load_data();
   (slice fs, int f) = past_elections.udict_get?(32, election_id);
   ifnot (f) {  ;; election not found
@@ -786,6 +786,9 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline {
    int total_stake,
    int bonuses,
    cell complaints) = unpack_past_election(fs);
+  (slice cs, int pubkey_found) = frozen_dict.udict_get?(256, val_pubkey);
+  throw_unless(error::validator_params_mismatch, pubkey_found);
+  throw_unless(error::validator_params_mismatch, (cs~load_uint(256) == src_addr));
   (complaints, cell accepted_complaint, int status) = register_vote(complaints, chash, idx, weight);
   if (status <= 0) {
     return status;
@@ -863,7 +866,9 @@ int proceed_register_vote(election_id, chash, idx, weight) impure inline {
     (slice vdescr, int total_weight) = get_validator_descr(idx);
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
-    int res = proceed_register_vote(elect_id, chash, idx, weight);
+    (int src_wc, int src_addr) = parse_std_addr(s_addr);
+    throw_unless(error::validator_params_mismatch, src_wc == -1);
+    int res = proceed_register_vote(elect_id, chash, idx, weight, val_pubkey, src_addr);
     return send_message_back(s_addr, res + op::response::vote_result, query_id, op, 0, 64);
   }
 

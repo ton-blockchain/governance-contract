@@ -32,7 +32,7 @@ Contracts are expected to be build using latest version of FunC from https://git
 |ELE-16| ✔️  |  ✔️ |   |
 |SMA-01| ✔️  |  ✔️ | Partially solved by multisignature scheme. There also could be time-lock and/or time-lock which can be opened immediately by majority of validators signature  |
 |SMA-01| ✔️  |  ✔️ |   |
-|SMA-02| ✔️  |  ✔️ |  global_id should be ConfigParameter and not only present in  blocks. It can be used for cross-chain replay protection. Cross-round replay attack will be eliminated when the only option to vote will be voting-through-internal-message-to-elector |
+|SMA-02| ✔️  |  〰️ |  The proper fix will require addition of `global_id` to TVM context, then it can be used for cross-chain replay protection. We will neglect absence of cross-chain protection for now. Cross-round replay attack will be eliminated when the only option to vote will be voting-through-internal-message-to-elector |
 |SMA-03| ✔️  |  ✔️ |   |
 |SMA-04| ✔️  |  ✔️ |   |
 |SMA-05| ✔️  |  ✔️ |   |
