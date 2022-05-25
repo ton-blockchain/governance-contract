@@ -765,7 +765,7 @@ int register_complaint(s_addr, complaint, msg_value) inline {
   weight_remaining -= weight;
   ;; save voters and weight_remaining
   complaints~udict_set_builder(256, chash, pack_complaint_status(complaint, voters, vset_id, weight_remaining));
-  if( (old_wr > 0) & (weight_remaining < 0)) {
+  if( (old_wr >= 0) & (weight_remaining < 0)) {
     ;; complaint wins, prepare punishment
     return (complaints, complaint, 2);
   }
