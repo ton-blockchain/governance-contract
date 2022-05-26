@@ -612,7 +612,8 @@ cell scan_random_proposal(cell vote_dict) inline {
     return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
   }
   if (tag == op::vote_for_config_proposal_from_elector) {
-    (int idx, int phash, int vset_id) = (in_msg~load_uint(16), in_msg~load_uint(256), in_msg~load_uint(256));
+    slice cs = in_msg~load_ref().begin_parse();
+    (int idx, int phash, int vset_id) = (cs~load_uint(16), cs~load_uint(256), cs~load_uint(256));
     cell elector_param = config_param(config_params::elector_address);
     int elector_addr = cell_null?(elector_param) ? -1 : elector_param.begin_parse().preload_uint(256);
     (cell cur_vset, int total_weight, cell validators) = get_current_vset();
