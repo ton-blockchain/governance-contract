@@ -613,17 +613,19 @@ cell scan_random_proposal(cell vote_dict) inline {
     return send_answer(s_addr, query_id, ans_tag, mode);
   }
   if (tag == op::vote_for_config_proposal) {
-    ;; vote for a configuration proposal
-    slice signature = in_msg~load_bits(512);
-    slice msg_body = in_msg;
-    (int sign_tag, int idx, int phash) = (in_msg~load_uint(32), in_msg~load_uint(16), in_msg~load_uint(256));
-    in_msg.end_parse();
-    throw_unless(37, sign_tag == tag::signature_challenge);
-    (slice vdescr, int total_weight) = get_validator_descr(idx);
-    (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
-    throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
-    int res = proceed_register_vote(phash, idx, weight);
-    return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
+    ;; vote for a configuration proposal via signature
+    ifnot(cell_null?(config_param(special_params::signed_votes_disabled))) {
+      slice signature = in_msg~load_bits(512);
+      slice msg_body = in_msg;
+      (int sign_tag, int idx, int phash) = (in_msg~load_uint(32), in_msg~load_uint(16), in_msg~load_uint(256));
+      in_msg.end_parse();
+      throw_unless(37, sign_tag == tag::signature_challenge);
+      (slice vdescr, int total_weight) = get_validator_descr(idx);
+      (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
+      throw_unless(34, check_data_signature(msg_body, signature, val_pubkey));
+      int res = proceed_register_vote(phash, idx, weight);
+      return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
+    }
   }
   if (tag == op::vote_for_config_proposal_from_elector) {
     slice cs = in_msg~load_ref().begin_parse();
