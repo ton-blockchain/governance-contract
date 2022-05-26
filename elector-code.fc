@@ -378,7 +378,8 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
    cell members,
    int failed,
    int finished) = elect.unpack_elect();
-  msg_value -= ONECOIN;   ;; deduct GR$1 for sending confirmation
+  int confirmation_requested = query_id > 0;
+  msg_value -= confirmation_requested? ONECOIN : 0;   ;; deduct GR$1 for sending confirmation
   if ((msg_value * 4096) < total_stake) {
     ;; stake smaller than 1/4096 of the total accumulated stakes, return
     return return_stake(s_addr, query_id, 2);
@@ -419,7 +420,7 @@ builder pack_complaint(int validator_pubkey, cell description, int created_at, i
   elect = pack_elect(elect_at, elect_close, min_stake, total_stake, members, false, false);
   set_data(begin_cell().store_dict(elect).store_slice(ds).end_cell());
   ;; return confirmation message
-  if (query_id) {
+  if (confirmation_requested) {
     return send_confirmation(s_addr, query_id, 0);
   }
   return ();
