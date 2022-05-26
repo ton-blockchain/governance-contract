@@ -16,7 +16,10 @@
   return res;
 }
 
-() store_data(cfg_dict, stored_seqno, public_key, vote_dict) impure inline_ref {
+() store_data(cell cfg_dict,
+              int stored_seqno,
+              int public_key,
+              cell vote_dict) impure inline_ref {
   set_data(begin_cell()
     .store_ref(cfg_dict)
     .store_uint(stored_seqno, 32)
@@ -134,7 +137,7 @@
 () after_code_upgrade(slice param, cont old_code) impure method_id(1666) {
 }
 
-(cell, int) perform_action(cfg_dict, public_key, action, cs) inline_ref {
+(cell, int) perform_action(cell cfg_dict, int public_key, int action, slice cs) inline_ref {
   if (action == op::update_config_parameter) {
     ;; change one configuration parameter
     int param_index = cs~load_int(32);
@@ -311,7 +314,12 @@ slice update_proposal_status(slice rest, int weight_remaining, int critical?) in
   .end_cell().begin_parse();
 }
 
-builder begin_pack_proposal_status(int expires, cell proposal, int critical?, cell voters, int weight_remaining, int vset_id) inline {
+builder begin_pack_proposal_status(int expires,
+                                   cell proposal,
+                                   int critical?,
+                                   cell voters,
+                                   int weight_remaining,
+                                   int vset_id) inline {
   return begin_cell()
     .store_int(0xce - 0x100, 8)
     .store_uint(expires, 32)
@@ -322,7 +330,10 @@ builder begin_pack_proposal_status(int expires, cell proposal, int critical?, ce
     .store_uint(vset_id, 256);
 }
 
-(cell, cell, int) register_vote(vote_dict, phash, idx, weight) inline_ref {
+(cell, cell, int) register_vote(cell vote_dict,
+                                int phash,
+                                int idx,
+                                int weight) inline_ref {
   (slice pstatus, int found?) = vote_dict.udict_get?(256, phash);
   ifnot (found?) {
     ;; config proposal not found
@@ -388,7 +399,7 @@ builder begin_pack_proposal_status(int expires, cell proposal, int critical?, ce
   return (vote_dict, null(), 2);
 }
 
-int proceed_register_vote(phash, idx, weight) impure inline_ref {
+int proceed_register_vote(int phash, int idx, int weight) impure inline_ref {
   (cell cfg_dict, int stored_seqno, int public_key, cell vote_dict) = load_data();
   (vote_dict, cell accepted_proposal, int status) = register_vote(vote_dict, phash, idx, weight);
   store_data(cfg_dict, stored_seqno, public_key, vote_dict);
@@ -458,7 +469,8 @@ cell scan_random_proposal(cell vote_dict) inline {
 }
 
 ;; price, error_code
-(int, int) register_voting_proposal(slice cs, int msg_value) impure inline {
+(int, int) register_voting_proposal(slice cs,
+                                    int msg_value) impure inline {
   (int expire_in, cell proposal, int critical?) = (cs~load_uint(32), cs~load_ref(), cs~load_int(1));
   cs.end_parse();
   if(expire_in >> 30) {
@@ -551,7 +563,9 @@ cell scan_random_proposal(cell vote_dict) inline {
   return (price, 0);
 }
 
-() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+() recv_internal(int msg_value,
+                 cell in_msg_cell,
+                 slice in_msg) impure {
   slice cs = in_msg_cell.begin_parse();
   int flags = cs~load_uint(4);  ;; int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool
   slice s_addr = cs~load_msg_addr();
