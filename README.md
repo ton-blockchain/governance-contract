@@ -1,5 +1,5 @@
-# FunC
-Contracts are expected to be build using latest version of FunC from https://github.com/SpyCheese/ton/tree/func-inline-return
+# New Governance contracts
+Audit performed by [Certik](https://www.certik.com/projects/the-open-network) did not reveal critical issues requiring an immediate upgrade of governance contracts. Steel, since it is expected that governance contracts will be upgraded in the future to provide new functionality we have addressed all certik's findings in this repository; it should be treated as starting codebase for adding new features.
 
 # Phase 1
 | Name | Agree?  | Fixed?  | Comment   |
