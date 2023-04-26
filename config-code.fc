@@ -141,9 +141,17 @@
   if (action == op::update_config_parameter) {
     ;; change one configuration parameter
     int param_index = cs~load_int(32);
-    cell param_value = cs~load_ref();
-    cs.end_parse();
-    cfg_dict~idict_set_ref(32, param_index, param_value);
+    ;; If there is ref - set it as parameter
+    ;; if there is no ref - remove parameter
+    ;; It would be better to save ref as (Maybe ^Cell), for now keep for 
+    ;; backward compatibility
+    if(cs.slice_refs() == 1) { 
+      var param_value = cs~load_ref();
+      cs.end_parse();
+      cfg_dict~idict_set_ref(32, param_index, param_value);
+    } else {
+      (cfg_dict, int success) = cfg_dict.idict_delete?(32, param_index);
+    }
     return (cfg_dict, public_key);
   } elseif (action == op::set_new_code) {
     ;; change configuration smart contract code
