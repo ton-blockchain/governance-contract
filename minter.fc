@@ -71,11 +71,7 @@ builder store_currency(builder b, int x) asm "STVARUINT32";
     }
 
     slice sender_address = cs~load_msg_addr();
-    cs~load_msg_addr(); ;; skip dst
-    cs~load_coins(); ;; skip value
-    cs~skip_bits(1); ;; skip extracurrency collection
-    cs~load_coins(); ;; skip ihr_fee
-    int fwd_fee = muldiv(cs~load_coins(), 3, 2); ;; we use message fwd_fee for estimation of forward_payload costs
+    throw_unless(401, equal_slice_bits("Ef8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAU"a, sender_address)); ;; TODO remove for universal access
 
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
@@ -128,6 +124,14 @@ builder store_currency(builder b, int x) asm "STVARUINT32";
         send_raw_message(msg_to_bounce.end_cell(), 0);
 
         set_data(begin_cell().store_dict(currency_owners).end_cell());
+        return ();
+    }
+    if (op == op::change_admin) {
+        int currency_id = in_msg_body~load_uint(32);
+        cell currency_owners = get_data().begin_parse().preload_dict();
+        var (owner, exists?) = currency_owners.udict_get?(32, currency_id);
+        throw_unless(error::unauthorized_change_admin_request, equal_slice_bits(sender_address, owner));
+        currency_owners~idict_set_builder(32, currency_id, begin_cell().store_slice(in_msg_body~load_msg_addr()));
         return ();
     }
     throw(error::unknown_op);

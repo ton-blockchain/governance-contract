@@ -70,9 +70,11 @@ const int special_params::config_multikey = -1003;
 const int op::mint = 0x1674b0a0;
 const int op::ok = 0xa1a1a1a1;
 const int op::failed = 0xb0b0b0b0;
+const int op::change_admin = 0x4840664f;
 
 const int error::unknown_op = 0xffff;
 const int error::no_owner_for_result = 300;
 const int error::no_param_6 = 301;
 const int error::unauthorized_mint_request = 302;
 const int error::uncovered_fee = 303;
+const int error::unauthorized_change_admin_request = 304;
