@@ -2,6 +2,9 @@
 
 #include "constants.fc";
 
+(slice, int) load_currency(slice s) asm( -> 1 0) "LDVARUINT32";
+builder store_currency(builder b, int x) asm "STVARUINT32";
+
 () set_conf_param(int index, cell value) impure {
   slice cs = get_data().begin_parse();
   cell cfg_dict = cs~load_ref();
@@ -652,6 +655,26 @@ cell scan_random_proposal(cell vote_dict) inline {
     (int val_pubkey, int weight) = unpack_validator_descr(vdescr);
     int res = proceed_register_vote(phash, idx, weight);
     return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
+  }
+  if (tag == op::add_extra_currency) {
+    int minter_addr = config_param(2).begin_parse().preload_uint(256);
+    throw_unless(38, src_addr == minter_addr);
+    int currency_id = in_msg~load_uint(32);
+    int to_add = in_msg~load_currency();
+    slice s_to_mint = config_param(7).begin_parse();
+    int supply = to_add;
+    cell currency_collection = s_to_mint~load_dict();
+    var (minted, exists?) = currency_collection.udict_get?(32, currency_id);
+    if (exists?) {
+      supply += minted~load_currency();
+    }
+    currency_collection~udict_set_builder(32, currency_id,
+                                          begin_cell().store_currency(supply));
+    set_conf_param(7, begin_cell()
+                        .store_dict(currency_collection)
+                      .end_cell());
+    return ();
+    
   }
   ;; if tag is non-zero and its higher bit is zero, throw an exception (the message is an unsupported query)
   ;; to bounce message back to sender

@@ -4,6 +4,7 @@ const int op::update_config_key = 0x50624b21;
 const int op::update_elector_code = 0x4e43ef05;
 const int op::vote_for_config_proposal = 0x566f7465;
 const int op::vote_for_config_proposal_from_elector = 0x13245678; ;;TODO
+const int op::add_extra_currency = 0x756a06b1;
 const int op::response::vote_for_config_proposal = (op::vote_for_config_proposal + 0x80000000);
 const int op::set_next_validator_set = 0x4e565354;
 const int op::response::update_vset_confirm = 0xee764f4b;
@@ -64,3 +65,16 @@ const int special_params::update_config_code = -1000;
 const int special_params::update_elector_code = -1001;
 const int special_params::signed_votes_disabled = -1002;
 const int special_params::config_multikey = -1003;
+
+
+const int op::mint = 0x1674b0a0;
+const int op::ok = 0xa1a1a1a1;
+const int op::failed = 0xb0b0b0b0;
+const int op::change_admin = 0x4840664f;
+
+const int error::unknown_op = 0xffff;
+const int error::no_owner_for_result = 300;
+const int error::no_param_6 = 301;
+const int error::unauthorized_mint_request = 302;
+const int error::uncovered_fee = 303;
+const int error::unauthorized_change_admin_request = 304;

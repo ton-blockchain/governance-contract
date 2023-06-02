@@ -1,0 +1,138 @@
+;; Deadly simple extra currency minter contract
+
+#include "stdlib.func";
+#include "constants.fc";
+
+(slice, int) load_currency(slice s) asm( -> 1 0) "LDVARUINT32";
+builder store_currency(builder b, int x) asm "STVARUINT32";
+
+(slice, ()) skip_bounce_flag(slice s) impure inline {
+    s~skip_bits(32); ;; 0xFFFFFFFF
+    return (s, ());
+}
+
+() recv_bounced(slice in_msg_body) impure {
+    in_msg_body~skip_bounce_flag();
+    int new? = in_msg_body~load_uint(1);
+    int currency_id = in_msg_body~load_uint(32);
+
+    cell currency_owners = get_data().begin_parse().preload_dict();
+    var (owner, exists?) = currency_owners.udict_get?(32, currency_id);
+    throw_unless(error::no_owner_for_result, exists?);
+
+    cell my_currencies = get_balance().pair_second();
+    var (s_currency_balance, found?) = my_currencies.udict_get?(32, currency_id);
+
+    if (found?) {
+        int currency_balance = s_currency_balance~load_currency();
+        if (currency_balance > 0) {
+            cell currencies_to_send = new_dict();
+            currencies_to_send~udict_set_builder(32, currency_id, begin_cell().store_currency(currency_balance));
+            var msg_ok = begin_cell()
+              .store_uint(0x10, 6)
+              .store_slice(owner)
+              .store_coins(0) ;; remaining tons
+              .store_dict(currencies_to_send)
+              .store_uint(0, 4 + 4 + 64 + 32 + 1 + 1)
+              .store_uint(op::ok, 32)
+              .store_uint(0, 64);
+            send_raw_message(msg_ok.end_cell(), 64);
+            return ();
+        }
+    }
+    var msg_failed = begin_cell()
+      .store_uint(0x10, 6)
+      .store_slice(owner)
+      .store_coins(0) ;; remaining tons
+      .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+      .store_uint(op::failed, 32)
+      .store_uint(0, 64);
+    send_raw_message(msg_failed.end_cell(), 64);
+
+    if (new?) {
+        currency_owners~udict_delete?(32, currency_id);
+    }
+    set_data(begin_cell()
+              .store_dict(currency_owners)
+            .end_cell());
+    return ();
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_bits() == 0) { ;; ignore empty messages
+        return ();
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) {
+        return recv_bounced(in_msg_body);
+    }
+
+    slice sender_address = cs~load_msg_addr();
+    throw_unless(401, equal_slice_bits("Ef8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAU"a, sender_address)); ;; TODO remove for universal access
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == op::mint) {
+        cell currency_owners = get_data().begin_parse().preload_dict();
+
+        int currency_id = in_msg_body~load_uint(32);
+        int amount_to_mint = in_msg_body~load_currency();
+
+        cell mint_price_list = config_param(6);
+        throw_if(error::no_param_6, cell_null?(mint_price_list));
+
+        slice ps = mint_price_list.begin_parse();
+        int mint_new_price = ps~load_coins();
+        int mint_add_price = ps~load_coins();
+
+        int required_fee = mint_new_price;
+
+        var (owner, exists?) = currency_owners.udict_get?(32, currency_id);
+        if (exists?) {
+            throw_unless(error::unauthorized_mint_request, equal_slice_bits(sender_address, owner));
+            required_fee = mint_add_price;
+        } else {
+            currency_owners~idict_set_builder(32, currency_id, begin_cell().store_slice(sender_address));
+        }
+        throw_unless(error::uncovered_fee, msg_value >= required_fee);
+
+        int config_addr = config_param(0).begin_parse().preload_uint(256);
+
+        var msg_to_config = begin_cell()
+          .store_uint(0x10, 6)
+          .store_uint(0x4ff, 11) ;; 10 = address pfx, 0 = no anycast, -1 = int8 workchain_id -> 0b10011111111
+          .store_uint(config_addr, 256)
+          .store_coins(ONECOIN) ;; CHANGE IT
+          .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+          .store_uint(op::add_extra_currency, 32)
+          .store_uint(query_id, 64)
+          .store_uint(currency_id, 32)
+          .store_currency(amount_to_mint);
+        send_raw_message(msg_to_config.end_cell(), 0);
+
+        var msg_to_bounce = begin_cell()
+          .store_uint(0x18, 6)
+          .store_uint(0x400, 11).store_uint(0, 256) ;; to 0:000...0000
+          .store_coins(ONECOIN)
+          .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+          .store_int(~ exists?, 1) ;; 1 if new currency
+          .store_uint(currency_id, 32);
+        send_raw_message(msg_to_bounce.end_cell(), 0);
+
+        set_data(begin_cell().store_dict(currency_owners).end_cell());
+        return ();
+    }
+    if (op == op::change_admin) {
+        int currency_id = in_msg_body~load_uint(32);
+        cell currency_owners = get_data().begin_parse().preload_dict();
+        var (owner, exists?) = currency_owners.udict_get?(32, currency_id);
+        throw_unless(error::unauthorized_change_admin_request, equal_slice_bits(sender_address, owner));
+        currency_owners~idict_set_builder(32, currency_id, begin_cell().store_slice(in_msg_body~load_msg_addr()));
+        return ();
+    }
+    throw(error::unknown_op);
+}
