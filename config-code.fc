@@ -107,6 +107,35 @@ builder store_currency(builder b, int x) asm "STVARUINT32";
   .end_cell(), mode);
 }
 
+() send_answer_with_body(addr, query_id, ans_tag, body, mode) impure inline_ref {
+  ;; int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+  send_raw_message(begin_cell()                 ;; see "Message X" description in crypto/block/block.tlb
+                                                ;; or https://ton.org/docs/#/smart-contracts/messages?id=sending-messages
+    .store_uint(0x18, 6)                        ;; 0x18 = 0b011000 = {0, 1, 1 , 0, 00}
+                                                ;; First 0 means int_msg_info$0 tag
+                                                ;; 1 1 0 are flags (ihr_disabled, bounce, bounced)
+                                                ;; 00 is a source address addr_none$00 tag,
+                                                ;; correct value added automatically
+    .store_slice(addr)                          ;; destination address
+    .store_uint(0, 4 + 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                                                ;; first 4 zero bits mean zero nanotons
+                                                ;; note that mode 64 will add to this sum amount in incoming message minus gas fees
+                                                ;; and mode 128 will add all non-reserved amount on account balance
+                                                ;; 1 zero bit means there is no other:ExtraCurrencyCollection
+                                                ;; 4 + 4 zero bits for empty ihr_fee:Grams and fwd_fee:Grams,
+                                                ;; correct values added automatically
+                                                ;; 64 + 32 zero bits for created_lt:uint64 and created_at:uint32,
+                                                ;; correct values added automatically, see "CommonMsgInfo" description
+                                                ;; 1 zero bit means there is no StateInit structure
+                                                ;; 1 zero bit means the message body is represented
+                                                ;; in this cell, not in reference
+                                                ;; The following bits are the message body
+    .store_uint(ans_tag, 32)
+    .store_uint(query_id, 64)
+    .store_builder(body)
+  .end_cell(), mode);
+}
+
 ;; forward a message to elector smart contract to make it upgrade its code
 () change_elector_code(slice cs) impure inline_ref {
   int dest_addr = config_param(config_params::elector_address).begin_parse().preload_uint(256);
@@ -656,12 +685,20 @@ cell scan_random_proposal(cell vote_dict) inline {
     int res = proceed_register_vote(phash, idx, weight);
     return send_answer(s_addr, query_id, res + op::response::vote_result, 64);
   }
-  if (tag == op::add_extra_currency) {
-    int minter_addr = config_param(2).begin_parse().preload_uint(256);
+  if (tag == op::mint) {
+    int minter_addr = config_param(config_params::minter_address).begin_parse().preload_uint(256);
     throw_unless(38, src_addr == minter_addr);
+    slice in_msg_copy = in_msg;
     int currency_id = in_msg~load_uint(32);
     int to_add = in_msg~load_currency();
-    slice s_to_mint = config_param(7).begin_parse();
+    ;; slice s_to_mint = config_param(config_params::extra_currencies).begin_parse();
+    ;; We should not use config_param() here because it only returns config at the beginning of the block
+    ;; since config may change within block we need to only check state in contract
+    
+    (cell cfg_dict, int stored_seqno, int public_key, cell vote_dict) = load_data();
+    (cell to_mint, int exists?) = cfg_dict.idict_get_ref?(32, config_params::extra_currencies);
+    slice s_to_mint = to_mint.begin_parse(); ;; we can neglect checking exists? here because begin_parse will automatically throw
+    
     int supply = to_add;
     cell currency_collection = s_to_mint~load_dict();
     var (minted, exists?) = currency_collection.udict_get?(32, currency_id);
@@ -670,10 +707,10 @@ cell scan_random_proposal(cell vote_dict) inline {
     }
     currency_collection~udict_set_builder(32, currency_id,
                                           begin_cell().store_currency(supply));
-    set_conf_param(7, begin_cell()
+    set_conf_param(config_params::extra_currencies, begin_cell()
                         .store_dict(currency_collection)
                       .end_cell());
-    return ();
+    return send_answer_with_body(s_addr, query_id, op::mint_registered, begin_cell().store_slice(in_msg_copy), 64);
     
   }
   ;; if tag is non-zero and its higher bit is zero, throw an exception (the message is an unsupported query)
