@@ -42,15 +42,11 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
           currencyBalance = currencyBalanceSlice.loadCurrency();
         }
         
-        var reserveAmount = ONECOIN * ONECOIN;
-        var tresholdToRequest = reserveAmount / 10;
-        var amountToSend = msgValue;
-        var amountToRequest = 0;
-        var payload: cell = null;
+        var amountToRequest = ONECOIN * ONECOIN;
         
-        if (currencyBalance >= amountToSend) {
+        if (currencyBalance >= msgValue) {
             var currenciesToSend: cell = createEmptyDict();
-            currenciesToSend.iDictSetBuilder(32, CURRENCY_ID, beginCell().storeCurrency(amountToSend));
+            currenciesToSend.iDictSetBuilder(32, CURRENCY_ID, beginCell().storeCurrency(msgValue));
             var msgWithdrawal = beginCell()
                         .storeUint(NON_BOUNCEABLE, 6)
                         .storeSlice(senderAddress)
@@ -58,38 +54,37 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
                         .storeDict(currenciesToSend)
                         .storeUint(0, 4 + 4 + 64 + 32 + 1 + 1)
                         .endCell();
-           sendRawMessage(msgWithdrawal, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
-           var currencyBalanceAfter = currencyBalance - amountToSend;
-           if ( currencyBalanceAfter > tresholdToRequest) {
-             return;
-           }
-           var alreadyRequested = getContractData().beginParse().loadUint(256);
-           if(alreadyRequested > 0) {
-             return;
-           }
-           amountToRequest = reserveAmount - currencyBalanceAfter;
-        } else {
-            var alreadyRequested = getContractData().beginParse().loadUint(256);
-            // do not allow more than one request in-fly
-            assert ( alreadyRequested == 0) throw 222;
-            payload = beginCell().storeUint(amountToSend, 256).storeSlice(senderAddress).endCell();
+           return sendRawMessage(msgWithdrawal, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
         }
+        var alreadyRequested = getContractData().beginParse().loadInt(1);
+        // do not allow more than one request in-fly
+        assert ( alreadyRequested == 0) throw 222;
         
-        setContractData(beginCell().storeUint(amountToRequest, 256).endCell());
+        setContractData(beginCell().storeInt(true, 1).endCell());
         
         var msgMint = beginCell()
               .storeUint(0x10, 6)
               .storeUint(0x4ff, 11) // 10 = address pfx, 0 = no anycast, -1 = int8 workchain_id -> 0b10011111111
               .storeUint(minterAddr, 256)
-              .storeCoins(ONECOIN)
+              .storeCoins(2 * ONECOIN)
               .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
               .storeMessageOp(OP_MINT)
               .storeMessageQueryId(queryId)
               .storeUint(CURRENCY_ID, 32)
               .storeCurrency(amountToRequest)
-              .storeMaybeRef(payload)
+              .storeMaybeRef(null)
               .endCell();
-        return sendRawMessage(msgMint, 0);
+        sendRawMessage(msgMint, 0);
+        
+        // lets return the rest to user
+        reserveToncoinsOnBalance(0, RESERVE_MODE_INCREASE_BY_ORIGINAL_BALANCE);
+        var msgWithdrawal = beginCell()
+                        .storeUint(NON_BOUNCEABLE, 6)
+                        .storeSlice(senderAddress)
+                        .storeCoins(0)
+                        .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                        .endCell();
+        return sendRawMessage(msgWithdrawal, SEND_MODE_CARRY_ALL_BALANCE);        
     }
     
     var op: int = inMsgBody.loadUint(32);
@@ -97,45 +92,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     
     //minted#op_minted queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
     if( op == OP_MINTED) {
-        var minterAddr: int = getBlockchainConfigParam(MinterAddressConfig).beginParse().preloadUint(256);
-        var (workchain, bareSenderAddress) = parseStandardAddress(senderAddress);
-        assert( (workchain == -1) && (bareSenderAddress == minterAddr)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
-        
-        var currencyId: int = inMsgBody.loadUint(32);
-        var amountToMint: int = inMsgBody.loadCurrency();
-        var payload: cell = inMsgBody.loadMaybeRef();
-        
-        reserveToncoinsOnBalance(ONECOIN, RESERVE_MODE_EXACT_AMOUNT);
-
-        var blackholeAddr: int = getBlockchainConfigParam(BlackholeAddressConfig).beginParse().preloadUint(256);
-        var msgBurn = beginCell()
-              .storeUint(BOUNCEABLE, 6)
-              .storeUint(0x4ff, 11) // 10 = address pfx, 0 = no anycast, -1 = int8 workchain_id -> 0b10011111111
-              .storeUint(blackholeAddr, 256)
-              .storeCoins(myBalance - 2 * ONECOIN)
-              .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-              .endCell();
-        sendRawMessage(msgBurn, SEND_MODE_REGULAR);  
-
-        setContractData(beginCell().storeUint(0, 256).endCell()); // is it safe?
-        if(payload == null) {
-            return;
-        }
-        var payloadSlice: slice = payload.beginParse();
-        var amountToSend = payloadSlice.loadUint(256);
-        var destination = payloadSlice.loadAddress();
-        
-        var currenciesToSend: cell = createEmptyDict();
-        currenciesToSend.iDictSetBuilder(32, CURRENCY_ID, beginCell().storeCurrency(amountToSend));
-        
-        var msgWithdrawal = beginCell()
-                        .storeUint(NON_BOUNCEABLE, 6)
-                        .storeSlice(destination)
-                        .storeCoins(myBalance - msgValue)
-                        .storeDict(currenciesToSend)
-                        .storeUint(0, 4 + 4 + 64 + 32 + 1 + 1)
-                        .endCell();
-        sendRawMessage(msgWithdrawal, SEND_MODE_REGULAR);
+        return setContractData(beginCell().storeInt(false, 1).endCell());
     }
     throw ERROR_UNKNOWN_OP;
 }

@@ -3,11 +3,11 @@ const MinterAddressConfig = 2;
 const BlackholeAddressConfig = 5;
 const ExtraCurrencyAuthorizationConfig = -0xEC;
 
-const OP_MINT = 0x1674b0a0;
-const OP_MINT_REGISTERED = 0xb0a01675;
-const OP_ECHO = 0x10;
-const OP_ECHOED = 0x11;
-const OP_MINTED = 0x12;
+const OP_MINT = 0x100d888c;
+const OP_MINT_REGISTERED = 0x82a325a4;
+const OP_ECHO = 0xffd7ce8b;
+const OP_ECHOED = 0x94dbbb05;
+const OP_MINTED = 0x442526bd;
 
 
 const ERROR_NO_PARAM_6 = 1006;
