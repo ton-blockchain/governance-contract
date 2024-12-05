@@ -44,7 +44,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
               .storeCurrency(msgValue)
               .storeMaybeRef(payload)
               .endCell();
-        return sendRawMessage(msgMint, 0);
+        return sendRawMessage(msgMint, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
     }
     
     var op: int = inMsgBody.loadUint(32);

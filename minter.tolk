@@ -75,7 +75,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         var fwdFeeFromInMsg: int = inMsgFullSlice.retrieveFwdFee();
         var fwdFee: int = calculateOriginalMessageFee(MY_WORKCHAIN, fwdFeeFromInMsg); // we use message fwd_fee for estimation of forward_payload costs
         
-        var (owner, exist) = currencyOwners.iDictGet(32, currencyId);
+        var (owner, exist) = currencyOwners.uDictGet(32, currencyId);
         assert( exist ) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
         assert( isSliceBitsEqual(senderAddress, owner)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
         assert(msgValue >= requiredFee + fwdFee * 5) throw ERROR_UNCOVERED_FEE;
@@ -129,11 +129,11 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         var payload: cell = inMsgBody.loadMaybeRef();
         
         var currencyOwners: cell = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
-        var (owner, exist) = currencyOwners.iDictGet(32, currencyId);
+        var (owner, exist) = currencyOwners.uDictGet(32, currencyId);
         assert( exist ) throw ERROR_UNAUTHORIZED_MINT_REQUEST;        
 
         var currenciesToSend: cell = createEmptyDict();
-        currenciesToSend.iDictSetBuilder(32, currencyId, beginCell().storeCurrency(amountToMint));
+        currenciesToSend.uDictSetBuilder(32, currencyId, beginCell().storeCurrency(amountToMint));
         
         var msgToOwner = beginCell()
           .storeUint(NON_BOUNCEABLE, 6)
