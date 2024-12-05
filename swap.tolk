@@ -1,7 +1,13 @@
-// simplest swap
-// receives TON without message, deduct 3 * ONE_TON, calc mint amount (1nanoton = 1unit of extra currency)
-// request mint, put buyer address to payload.
-// on op_minted parse buyer from payload and sends extra_currency
+/*
+  Simplest swap
+  receives TON without message, deduct 3 * ONE_TON, calc mint amount (1nanoton = 1unit of extra currency)
+  request mint, put buyer address to payload.
+  on op_minted parse buyer from payload and sends extra_currency
+  
+  Issue with this approach is related to the fact that each mint causes change of config and thus keyblock.
+  In turn it slows down shards (each keyblock leads to rotation of validator groups) and lite-client sync.
+  Use for demonstration purposes only, for production-like contract check swap_with_reserve.tolk
+*/
 
 import "@stdlib/tvm-dicts"
 import "constants.tolk"

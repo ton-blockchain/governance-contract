@@ -1,36 +1,50 @@
-// Extra currency minter contract
-
-// In short, protocol is as following:
-// Admin -> Minter -> Config -> Minter -> Echo (in other workchain to wait till next masterchain block) -> Minter -> Admin
-
-// In details
-// Minter contract receives requests from ExtraCurrency admins.
-// Authorization is done by checking in ExtraCurrencyAuthorizationConfig
-// Scheme is as following:
-// mint#op_mint queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
-// Minter checks that there is enough TON to pay from Config6 + 5 * fwdFee
-// Note: no checks that there won't be (VarUint 32) overflow.
-// In this case there will be error on Config contract that won't be handled
-// After checks, Minter send mint request to Config
-// Scheme is as following:
-// mint#op_mint queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
-// Config checks that request is sent from Minter contract, then unpack 7th config param, and add to
-// currencyId requested amountToMint
-// Config response to Minter
-// Scheme is as following:
-// registered#op_mint_registered queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
-// At this moment extracurrency is not minted yet, we need to way till next masterchain block. Thus sending message to
-// Echo contract
-// Scheme is as following:
-// echo#op_echo queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
-// Echo responses with
-// echoed#op_echoed queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
-// Upon receiving echoed message Minter checks that it is sent from Echo
-// At this moment extracurrency already added to Minter balance
-// Minter finds Admin in ExtraCurrencyAuthorizationConfig and send there message with currencyId:amountToMint
-// Scheme is as following
-// minted#op_minted queryId:uint64 currencyId:int32 amountToMint:(VarUint 32) payload:(Maybe ^Cell) = InMsg;
-// All messages are sent with SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE
+/* 
+ * Extra Currency Minter Contract
+ *
+ * Protocol Overview:
+ * Admin -> Minter -> Config -> Minter -> Echo (in other workchain to wait until the next masterchain block) -> Minter -> Admin
+ *
+ * Detailed Explanation:
+ * - The Minter contract receives minting requests from ExtraCurrency administrators.
+ * - Authorization is performed by checking the ExtraCurrencyAuthorizationConfig.
+ *
+ * Message Scheme:
+ * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ *
+ * - The Minter checks that there are sufficient TON funds to pay from Config6 plus 5 times the forwarding fee.
+ *   Note: There are no checks for (VarUint 32) overflow.
+ *   In such cases, an error will occur on the Config contract that won't be handled.
+ *
+ * - After validation, the Minter sends a mint request to the Config contract.
+ *
+ * Message Scheme:
+ * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ *
+ * - The Config contract verifies that the request originates from the Minter contract, unpacks the 7th config parameter, and adds the requested amountToMint to the currencyId.
+ * - The Config contract responds to the Minter.
+ *
+ * Message Scheme:
+ * registered query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ *
+ * - At this point, the extra currency is not minted yet. We need to wait until the next masterchain block by sending a message to the Echo contract.
+ *
+ * Message Scheme:
+ * echo query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ *
+ * - The Echo contract responds with:
+ *
+ * Message Scheme:
+ * echoed query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ *
+ * - Upon receiving the echoed message, the Minter verifies that it was sent from the Echo contract.
+ * - At this moment, the extra currency has been added to the Minter's balance.
+ * - The Minter retrieves the Admin from the ExtraCurrencyAuthorizationConfig and sends a message containing currencyId and amountToMint.
+ *
+ * Message Scheme:
+ * minted query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ *
+ * - All messages are sent with SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE.
+ */
 
 
 
@@ -80,7 +94,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         assert( isSliceBitsEqual(senderAddress, owner)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
         assert(msgValue >= requiredFee + fwdFee * 5) throw ERROR_UNCOVERED_FEE;
 
-        var configAddr: int = getBlockchainConfigParam(ConfigContractConfig).beginParse().preloadUint(256);
+        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig).beginParse().preloadUint(256);
 
         var msgToConfig = beginCell()
           .storeUint(BOUNCEABLE, 6)
@@ -97,7 +111,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         return sendRawMessage(msgToConfig, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
     }
     if(op == OP_MINT_REGISTERED) {
-        var configAddr: int = getBlockchainConfigParam(ConfigContractConfig).beginParse().preloadUint(256);
+        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig).beginParse().preloadUint(256);
         var (workchain, bareSenderAddress) = parseStandardAddress(senderAddress);
         assert( (workchain == -1) && (bareSenderAddress == configAddr)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
 

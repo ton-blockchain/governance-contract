@@ -1,4 +1,4 @@
-const ConfigContractConfig = 0;
+const ConfigAddressConfig = 0;
 const MinterAddressConfig = 2;
 const BlackholeAddressConfig = 5;
 const ExtraCurrencyAuthorizationConfig = -0xEC;

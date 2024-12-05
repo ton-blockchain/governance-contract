@@ -1,10 +1,9 @@
-// Problem with simplest swap is as follows:
-// Each time we mint extracurrency we update global config, thus create keyblock
-// Keyblocks are milestones of blockchain used for fast sync and so on
-// Frequent keyblocks will make shards slower, lite-client much more slower
-// And in case in-contract lite-clients much more expensive.
+/*
 
-// Instead lets keep some spare extracurrency and request to mint more when we are close to depletion.
+On user request check whether we have enough extracurrency
+if enough - send to user
+if not - request minting of new ec to reserves.
+*/
 
 import "@stdlib/tvm-dicts"
 import "constants.tolk"
