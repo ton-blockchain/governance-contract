@@ -622,7 +622,7 @@ cell scan_random_proposal(cell vote_dict) inline {
   }
   if (tag == op::vote_for_config_proposal) {
     ;; vote for a configuration proposal via signature
-    ifnot(cell_null?(config_param(special_params::signed_votes_disabled))) {
+    if(cell_null?(config_param(special_params::signed_votes_disabled))) {
       slice signature = in_msg~load_bits(512);
       slice msg_body = in_msg;
       (int sign_tag, int idx, int phash) = (in_msg~load_uint(32), in_msg~load_uint(16), in_msg~load_uint(256));
