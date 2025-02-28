@@ -126,7 +126,7 @@ export class MinterNFTCollection implements Contract {
                          .endCell();
 
         return beginCell()
-                .storeUint(1, 32) // Op deploy
+                .storeUint(Ops.OP_NEW_ITEM, 32) // Op deploy
                 .storeUint(queryId, 64)
                 .storeUint(item.index, 32)
                 .storeCoins(value)
@@ -135,7 +135,6 @@ export class MinterNFTCollection implements Contract {
     }
 
     async sendNewItem(provider: ContractProvider, via: Sender, item: NewNftItem, value: bigint = toNano('3'), queryId: bigint | number = 0) {
-
         await provider.internal(via, {
             value: value + toNano('0.01'),
             body: MinterNFTCollection.newItemMessage(item, value, queryId),
@@ -145,7 +144,7 @@ export class MinterNFTCollection implements Contract {
 
     static withdrawExcessECMessage(withdrawSpecific: boolean, to: Address, curId: number, fromBalance: bigint = 0n, queryId: bigint | number = 0) {
         const head =  beginCell()
-                        .storeUint(Ops.OP_WITHDRAW_EXTRA_COLLECTION, 32)
+                        .storeUint(Ops.OP_WITHDRAW_EXCESS_COLLECTION, 32)
                         .storeUint(queryId, 64)
                         .storeBit(withdrawSpecific);
         if(withdrawSpecific) {

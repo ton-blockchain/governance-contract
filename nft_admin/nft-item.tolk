@@ -37,13 +37,16 @@ const AWAIT_INIT  = 1;
 const INITIALIZED = 2;
 
 //
+//  _ balance:(VarUinteger 32) maxSupply:(VarUinteger 32) = SupplyData
+//
 //  Storage
 //
-//  uint64 index
-//  MsgAddressInt collection_address
-//  MsgAddressInt owner_address
-//  cell content
-//
+//  _ status:uint4
+//  index:uint32
+//  collection_address:MsgAddressInt
+//  owner_address:MsgAddressInt
+//  supplyData:^SupplyData
+//  content:^Cell = ItemStorage
 
 @inline
 fun loadData(): (int, int, slice, slice, cell, int, int) {

@@ -451,7 +451,7 @@ describe('NFT Admin', () => {
         const mintTx = findTransactionRequired(res.transactions, {
             on: minterAdmin.address,
             from: deployer.address,
-            op: Ops.OP_TRANSFER_EC,
+            op: Ops.OP_MINT_EC,
             body: (b) => {
                 return b!.beginParse().preloadRef().equals(randomPayload);
             },
@@ -1002,7 +1002,7 @@ describe('NFT Admin', () => {
         expect(idxEc.transactions).toHaveTransaction({
             on: minterAdmin.address,
             from: deployer.address,
-            op: Ops.OP_WITHDRAW_EXTRA,
+            op: Ops.OP_WITHDRAW_EXCESS,
             aborted: true,
             exitCode: MintError.INVALID_EC
         });

@@ -1,5 +1,5 @@
 export const Ops = {
-    OP_NEW_ITEM: 1,
+    OP_NEW_ITEM: 0x9ab3b012,
     OP_MINT : 0x100d888c,
     OP_MINT_REGISTERED : 0x82a325a4,
     OP_ECHO : 0xffd7ce8b,
@@ -8,21 +8,20 @@ export const Ops = {
     // Jetton
     OP_MINT_JETTON : 0x642b7d07,
     INTERNAL_TRANSFER : 0x178d4519,
-
-
-    OP_FAILED: 42,
-    OP_MINT_INITIAL : 44,
+    OP_FAILED : 0x023a79ce,
+    OP_TOP_UP  : 0xd372158c,
+    OP_MINT_INITIAL : 0xa80bbfd7,
+    OP_REFUND_MINT  : 0x2231db7d,
+    OP_MINT_EC : 0x6760c40b,
+    OP_OUT_EC  : 0xbefd2d8f,
+    OP_BURN_EC : 0x8129586f,
+    OP_BURN_NOTIFICATION : 0x0766ec37,
+    OP_REBALANCE : 0xe624f852,
+    OP_UPDATE_CONTENT : 0x7980902a,
+    OP_RESET : 0x4f225089,
     OP_EXCESS : 0xd53276db,
-    OP_REFUND_MINT: 45,
-    OP_TRANSFER_EC : 46,
-    OP_OUT_EC : 146,
-    OP_BURN_EC: 47,
-    OP_BURN_NOTIFICATION: 48,
-    OP_REBALANCE: 49,
-    OP_UPDATE_CONTENT: 50,
-    OP_RESET: 51,
-    OP_WITHDRAW_EXTRA: 52,
-    OP_WITHDRAW_EXTRA_COLLECTION : 62
+    OP_WITHDRAW_EXCESS : 0x7ad2441e,
+    OP_WITHDRAW_EXCESS_COLLECTION : 0x8737c583
 }
 
 export const MintError = {

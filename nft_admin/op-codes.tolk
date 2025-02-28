@@ -12,25 +12,27 @@ const get_royalty_params = 0x693d3950;
 
 const report_royalty_params = 0xa8cb00ad;
 
-const OP_FAILED = 42;
-const OP_TOP_UP  = 43;
-const OP_MINT_INITIAL = 44;
-const OP_REFUND_MINT = 45;
-const OP_TRANSFER_EC = 46;
-const OP_OUT_EC  = 146;
-const OP_BURN_EC = 47;
-const OP_BURN_NOTIFICATION = 48;
-const OP_REBALANCE = 49;
-const OP_UPDATE_CONTENT = 50;
-const OP_RESET = 51;
-const OP_WITHDRAW_EXTRA = 52;
-const OP_WITHDRAW_EXTRA_COLLECTION = 62;
+const OP_NEW_ITEM = 0x9ab3b012;
 
-const OP_EXCESS = 0xd53276db;
+const OP_FAILED = 0x023a79ce;
+const OP_TOP_UP  = 0xd372158c;
+const OP_MINT_INITIAL = 0xa80bbfd7;
+const OP_REFUND_MINT  = 0x2231db7d;
+const OP_MINT_EC = 0x6760c40b;
+const OP_OUT_EC  = 0xbefd2d8f;
+const OP_BURN_EC = 0x8129586f;
+const OP_BURN_NOTIFICATION = 0x0766ec37;
+const OP_REBALANCE = 0xe624f852;
+const OP_UPDATE_CONTENT = 0x7980902a;
+const OP_RESET = 0x4f225089;
+const OP_WITHDRAW_EXCESS = 0x7ad2441e;
+const OP_WITHDRAW_EXCESS_COLLECTION = 0x8737c583;
+
 
 // From jetton
+const OP_EXCESS = 0xd53276db;
 const OP_MINT_JETTON = 0x642b7d07;
-const INTERNAL_TRANSFER = 0x178d4519;
+const OP_INTERNAL_TRANSFER = 0x178d4519;
 
 // NFTEditable
 @pure

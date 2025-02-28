@@ -63,7 +63,7 @@ export class MinterNFTAdmin implements Contract {
 
     static withdrawExcessECMessage(withdrawSpecific: boolean, to: Address, curId: number, fromBalance: bigint = 0n, queryId: bigint | number = 0) {
         const head =  beginCell()
-                        .storeUint(Ops.OP_WITHDRAW_EXTRA, 32)
+                        .storeUint(Ops.OP_WITHDRAW_EXCESS, 32)
                         .storeUint(queryId, 64)
                         .storeBit(withdrawSpecific);
         if(withdrawSpecific) {
