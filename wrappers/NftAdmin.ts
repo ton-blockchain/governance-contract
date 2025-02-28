@@ -30,8 +30,8 @@ export class MinterNFTAdmin implements Contract {
                            forwardPayload?: Cell | Slice | null) {
 
         const byRef   = forwardPayload instanceof Cell;
-        const transferBody = beginCell().storeUint(Ops.OP_TRANSFER_EC, 32).storeUint(0, 64) // op, queryId
-                          .storeCoins(jetton_amount)
+        const transferBody = beginCell().storeUint(Ops.OP_MINT_EC, 32).storeUint(0, 64) // op, queryId
+                          .storeVarUint(jetton_amount, 5)
                           .storeAddress(to)
                           .storeAddress(responseAddress)
                           .storeMaybeRef(customPayload)

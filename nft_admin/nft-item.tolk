@@ -467,7 +467,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     // In order to retain compatibility gonna have to carry the jetton scheme
     if (op == OP_MINT_EC) {
         assert(isSliceBitsEqual(ownerAddress, senderAddress), INVALID_SENDER);
-        var transferAmount = inMsgBody.loadCoins();
+        var transferAmount = inMsgBody.loadCurrency();
 
         var to = inMsgBody.loadAddress();
         var refund = inMsgBody.loadAddress();
