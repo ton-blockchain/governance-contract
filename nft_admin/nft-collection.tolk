@@ -106,7 +106,7 @@ fun updateItemContent(itemIdx: int, refund: slice, nftItemCode: cell, nftContent
                 .storeSlice(nftAddress)
                 .storeCoins(0)
                 .storePrefixOnlyBody()
-                .storeMessageOp(UPDATE_CONTENT)
+                .storeMessageOp(OP_UPDATE_CONTENT)
                 .storeMessageQueryId(queryId)
                 .storeUint(itemIdx, 32)
                 .storeSlice(refund)
@@ -142,7 +142,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     if (flags & 1) { // ignore all bounced messages
         inMsgBody.skipBouncedPrefix();
         var op = inMsgBody.loadUint(32);
-        if(op == 1) {
+        if(op == OP_NEW_ITEM) {
             // We won't going to know what item it was, but have to roll back regardless
             assert(curCount > 0, NO_ITEMS);
             saveData(curCount - 1, content, ownerAddress, nftItemCode);
@@ -178,7 +178,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     // Indicate what went wrong
     assert(loadStatus == LOAD_SUCCESSFUL, COLLECTION_MISCONFIG + loadStatus);
     
-    if (op == 1) { // deploy new nft
+    if (op == OP_NEW_ITEM) { // deploy new nft
       assert(curCount < maxCount, TOO_MANY_ITEMS);
       var itemIndex: int = inMsgBody.loadUint(32);
       var content = inMsgBody.loadRef();
@@ -191,7 +191,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
       return;
     }
 
-    if (op == UPDATE_CONTENT) {
+    if (op == OP_UPDATE_CONTENT) {
         var itemIdx: int = inMsgBody.loadUint(32);
         var refund: slice = inMsgBody.loadAddress();
 
@@ -219,7 +219,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         return;
     }
 
-    if(op == OP_WITHDRAW_EXTRA_COLLECTION) {
+    if(op == OP_WITHDRAW_EXCESS_COLLECTION) {
         var ecBalance: int = 0;
         var reserveEc:cell = createEmptyDict();
 

@@ -56,10 +56,10 @@ fun loadData(): (int, int, slice, slice, cell, int, int) {
       // Supply data
       var sd = ds.loadRef().beginParse();
 
-      var balance = sd.loadCurrency();
-      var amount  = sd.loadCurrency();
+      var balance   = sd.loadCurrency();
+      var maxSupply = sd.loadCurrency();
 
-      return (status, index, collectionAddress, ds.loadAddress(), ds.loadRef(), balance, amount);
+      return (status, index, collectionAddress, ds.loadAddress(), ds.loadRef(), balance, maxSupply);
     }
 }
 
@@ -215,7 +215,7 @@ fun refundMint(refund: slice, index: int, errCode: int, queryId: int) {
 fun sendBurnNotification(to: slice, from: slice, refund: slice, amount: int, forwardTon: int, payload: cell, queryId: int) {
 
     var msgBody = beginCell()
-                    .storeMessageOp(BURN_NOTIFICATION)
+                    .storeMessageOp(OP_BURN_NOTIFICATION)
                     .storeMessageQueryId(queryId)
                     .storeCurrency(amount)
                     .storeSlice(from)
@@ -272,13 +272,13 @@ fun sendEc(to: slice, refund: slice, index: int, amount: int, tonAmount: int, pa
 }
 
 fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody: slice) {
+
     if (inMsgBody.isEndOfSlice()) { // ignore empty messages
         return;
     }
 
     var cs: slice = inMsgFull.beginParse();
     var flags: int = cs.loadUint(4);
-
 
     var senderAddress: slice = cs.loadAddress();
 
@@ -315,7 +315,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     var op: int = inMsgBody.loadUint(32);
     var queryId: int = inMsgBody.loadUint(64);
 
-    if(op == MINT_INITIAL) {
+    if(op == OP_MINT_INITIAL) {
       assert(isSliceBitsEqual(collectionAddress, senderAddress), INVALID_SENDER);
 
       var collectionVersion = inMsgBody.loadUint(8);
@@ -325,11 +325,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
       content = inMsgBody.loadRef();
 
 
-      // var isStandardRefund = refundAddress.preloadUint(2) != 0;
       var (wc, hash, isStandardRefund) = refundAddress.isStandardAddress();
-      //debugPrint(wc);
-      //debugPrint(hash);
-      //debugPrint(isStandardRefund);
 
       try {
         assert(status == NOT_INITIALIZED, ALREADY_INITED);
@@ -416,13 +412,13 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
       return;
     }
 
-    if (op == TOP_UP) {
+    if (op == OP_TOP_UP) {
         return;
     }
 
     assert(status == INITIALIZED, NOT_INITED);
 
-    if (op == UPDATE_CONTENT) {
+    if (op == OP_UPDATE_CONTENT) {
         assert(isSliceBitsEqual(collectionAddress, senderAddress), INVALID_SENDER);
 
         var content = inMsgBody.loadRef();
@@ -459,7 +455,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 
         // see internal_transfer TL-B layout in jetton.tlb
         var masterMsgSlice: slice = masterMsg.beginParse();
-        assert(masterMsgSlice.loadMessageOp() == INTERNAL_TRANSFER, INVALID_MESSAGE);
+        assert(masterMsgSlice.loadMessageOp() == OP_INTERNAL_TRANSFER, INVALID_MESSAGE);
         masterMsgSlice.skipMessageQueryId();
         var transferAmount = masterMsgSlice.loadCoins();
         masterMsgSlice.loadAddress(); // Skip from
@@ -469,7 +465,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         return;
     }
     // In order to retain compatibility gonna have to carry the jetton scheme
-    if (op == TRANSFER_EC) {
+    if (op == OP_MINT_EC) {
         assert(isSliceBitsEqual(ownerAddress, senderAddress), INVALID_SENDER);
         var transferAmount = inMsgBody.loadCoins();
 
@@ -479,21 +475,15 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         inMsgBody.skipMaybeRef(); // Skip custom
 
         processTransfer(inMsgBody, to, refund, index, transferAmount, balance, fwdFee, msgValue, queryId);
-        // var forwardTon = inMsgBody.loadCoins();
-        // assert(msgValue >= mulDivFloor(fwdFee, 3, 2) + forwardTon + calculateGasFee(NFT_WORKCHAIN, MINT_GAS), NOT_ENOUGH_GAS);
-        // var forwardPayload = inMsgBody.checkEitherForwardPayload();
-        // sendEc(to, refund, index, transferAmount, forwardTon, forwardPayload, queryId);
-        // updateBalance(balance);
         return;
     }
 
-    if(op == BURN_EC) {
+    if(op == OP_BURN_EC) {
         var forwardTon = inMsgBody.loadCoins();
         assert(msgValue >= forwardTon + fwdFee + calculateGasFee(NFT_WORKCHAIN, BURN_GAS), NOT_ENOUGH_GAS);
 
         // Extra cell has more than one element
         assert(extraIn.getCellDepth() == 0, INVALID_EC);
-
 
         var burnAmount = getEcAmount(extraIn, index);
         assert(burnAmount > 0, NOT_ENOUGH_EC);
@@ -516,7 +506,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         return;
     }
 
-    if(op == OP_WITHDRAW_EXTRA) {
+    if(op == OP_WITHDRAW_EXCESS) {
         var isOwner: bool = isSliceBitsEqual(ownerAddress, senderAddress);
         var isCollection: bool = false;
 
@@ -564,7 +554,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         // sendExcess(fromBalance, RESERVE_MODE | RESERVE_EXCEPT, reserveEc, excesses, queryId, 0, to);
         return;
     }
-    if(op == REBALANCE) {
+    if(op == OP_REBALANCE) {
         var inAmount = getEcAmount(extraIn, index);
         var actualBalance = getEcAmount(getRawEc(), index) - inAmount;
 
