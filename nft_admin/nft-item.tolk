@@ -215,7 +215,16 @@ fun refundMint(refund: slice, index: int, errCode: int, queryId: int) {
 }
 
 @inline
-fun sendBurnNotification(to: slice, from: slice, refund: slice, amount: int, forwardTon: int, payload: cell, queryId: int) {
+fun sendBurnNotification(to: slice, from: slice, refund: slice, amount: int, forwardTon: int, extraIn: cell, payload: cell, queryId: int) {
+
+    var (wc, hash, isStandard) = refund.isStandardAddress();
+    var sendMode: int = SEND_MODE_PAY_FEES_SEPARATELY;
+
+    if(!isStandard) {
+        // forwardTon = 0; Value is actually ignored in 128 mode
+        sendMode = SEND_MODE_CARRY_ALL_BALANCE;
+        reserveEc(0, extraIn, RESERVE_IN_ADDITION | RESERVE_AT_MOST);
+    }
 
     var msgBody = beginCell()
                     .storeMessageOp(OP_BURN_NOTIFICATION)
@@ -231,7 +240,11 @@ fun sendBurnNotification(to: slice, from: slice, refund: slice, amount: int, for
                     .storeCoins(forwardTon)
                     .storeOnlyBodyRef(msgBody)
                   .endCell();
-    sendRawMessage(burnMsg, SEND_MODE_PAY_FEES_SEPARATELY | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+    sendRawMessage(burnMsg, sendMode | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+
+    if(isStandard) {
+        sendExcess(OP_EXCESS, 0, refund, extraIn, queryId, 0, 0);
+    }
 }
 
 @inline_ref
@@ -251,6 +264,15 @@ fun sendEc(to: slice, refund: slice, index: int, amount: int, tonAmount: int, pa
     var currenciesToSend: cell = createEmptyDict();
     currenciesToSend.uDictSetBuilder(32, index, beginCell().storeCurrency(amount));
 
+    var (wc, hash, isStandard) = refund.isStandardAddress();
+
+    var sendMode: int = SEND_MODE_PAY_FEES_SEPARATELY;
+
+    if(!isStandard) {
+        sendMode  = SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE;
+        tonAmount = 0;
+    }
+
     var body  = beginCell().storeMessageOp(OP_OUT_EC)
                            .storeMessageQueryId(queryId)
                            .storeSlice(payload)
@@ -263,9 +285,6 @@ fun sendEc(to: slice, refund: slice, index: int, amount: int, tonAmount: int, pa
                  .storeBodyRefWithEc(body, currenciesToSend);
 
 
-    var (wc, hash, isStandard) = refund.isStandardAddress();
-
-    var sendMode: int = isStandard ? SEND_MODE_PAY_FEES_SEPARATELY : SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE;
 
     sendRawMessage(ecMsg.endCell(), sendMode | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
 
@@ -498,13 +517,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         var refund  = inMsgBody.loadAddress();
         var payload = inMsgBody.loadMaybeRef();
 
-        sendBurnNotification(ownerAddress, senderAddress, refund, burnAmount, forwardTon, payload, queryId);
-
-        var (wc, hash, isStandard) = refund.isStandardAddress();
-
-        if(isStandard) {
-            sendExcess(OP_EXCESS, 0, refund, extraIn, queryId, 0, 0);
-        }
+        sendBurnNotification(ownerAddress, senderAddress, refund, burnAmount, forwardTon, extraIn, payload, queryId);
 
         return;
     }

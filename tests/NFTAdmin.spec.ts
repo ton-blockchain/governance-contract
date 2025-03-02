@@ -483,6 +483,10 @@ describe('NFT Admin', () => {
 
         let mintAmount = BigInt(getRandomInt(1, 100)) * BigInt(10 ** 8);
         let randomPayload = beginCell().storeUint(getRandomInt(1, 100000), 32).endCell();
+
+        const smc = await blockchain.getContract(minterAdmin.address);
+        const balanceBefore = smc.balance;
+
         let res = await minterAdmin.sendTransfer(deployer.getSender(), toNano('1'), mintAmount, otherWallet.address, null, randomPayload, toNano('0.01'));
 
         expect(res.transactions).toHaveTransaction({
@@ -492,6 +496,7 @@ describe('NFT Admin', () => {
             value: v => v! > toNano('0.01'),
             ec: [[ecId, mintAmount]],
         });
+        expect(smc.balance).toEqual(balanceBefore);
 
         const supplyAfter = (await minterAdmin.getJettonData()).supply;
         expect(supplyAfter).toEqual(supplyBefore + mintAmount);
@@ -598,6 +603,39 @@ describe('NFT Admin', () => {
             inMessageBounced: true,
             ec: [[ecId, 1n], [456, 1n]]
         });
+    });
+
+    it('minter should forward all incoming value if refund is not set', async () => {
+        let randomPayload = beginCell().storeUint(getRandomInt(1, 100000), 32).endCell();
+        let forwardTon    = BigInt(getRandomInt(1, 5)) * toNano('0.001');
+        let burnAmount    = BigInt(getRandomInt(1, 5)) * ((await getEcBalance(otherWallet.address, ecId)) / 10n);
+        let res = await minterAdmin.sendBurn(otherWallet.getSender(), {[ecId]: burnAmount}, forwardTon, null, randomPayload);
+        const smc = await blockchain.getContract(minterAdmin.address);
+        const balanceBefore = smc.balance;
+
+        expect(res.transactions).toHaveTransaction({
+            on: minterAdmin.address,
+            from: otherWallet.address,
+            ec: [[ecId, burnAmount]],
+            aborted: false
+        });
+
+        expect(res.transactions).toHaveTransaction({
+            on: deployer.address,
+            from: minterAdmin.address,
+            ec: [],
+            op: Ops.OP_BURN_NOTIFICATION,
+            value: v => v! > forwardTon,
+            body: (b) => {
+                let ds = b!.beginParse().skip(32 + 64);
+                return ds.loadVarUintBig(5) == burnAmount &&
+                       ds.loadAddress().equals(otherWallet.address) &&
+                       ds.loadAddressAny() === null &&
+                       ds.loadRef().equals(randomPayload);
+            }
+        });
+
+        expect(smc.balance).toEqual(balanceBefore);
     });
 
     it('minter should not be able to update content after mint', async () => {
