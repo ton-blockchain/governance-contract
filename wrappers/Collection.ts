@@ -136,7 +136,7 @@ export class MinterNFTCollection implements Contract {
 
     async sendNewItem(provider: ContractProvider, via: Sender, item: NewNftItem, value: bigint = toNano('3'), queryId: bigint | number = 0) {
         await provider.internal(via, {
-            value: value + toNano('0.01'),
+            value: value + toNano('0.05'),
             body: MinterNFTCollection.newItemMessage(item, value, queryId),
             sendMode: SendMode.PAY_GAS_SEPARATELY
         });

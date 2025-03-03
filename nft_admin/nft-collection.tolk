@@ -1,11 +1,13 @@
 tolk 0.8
 
 import "@stdlib/tvm-dicts"
+import "@stdlib/gas-payments"
 import "params.tolk"
 import "op-codes.tolk"
 import "errors.tolk"
 import "config.tolk"
 import "nft_helpers.tolk"
+import "gas.tolk"
 import "../constants.tolk"
 import "../messages.tolk"
 import "../utils.tolk"
@@ -78,7 +80,7 @@ fun deployNftItem(itemIndex: int, nftItemCode: cell, amount: int, nftContent: ce
             .storeUint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
             .storeRef(stateInit)
             .storeRef(nftContent);
-  sendRawMessage(msg.endCell(), 1); // pay transfer fees separately, revert on errors
+  return sendMessage(msg.endCell(), SEND_MODE_PAY_FEES_SEPARATELY); // pay transfer fees separately, revert on errors
 }
 
 @inline
@@ -182,11 +184,26 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
       assert(curCount < maxCount, TOO_MANY_ITEMS);
       var itemIndex: int = inMsgBody.loadUint(32);
       var content = inMsgBody.loadRef();
-      var collectionVersion = content.beginParse().skipBits(64 + 32).preloadUint(8);
+      var ds = content.beginParse();
+      assert(ds.loadMessageOp() == OP_MINT_INITIAL, INVALID_MESSAGE);
+      ds.skipBits(64);
 
-      assert(COLLECTION_VERSION == collectionVersion, INVALID_COLLECTION_VERSION);
+      assert(COLLECTION_VERSION == ds.preloadUint(8), INVALID_COLLECTION_VERSION);
 
-      deployNftItem(itemIndex, nftItemCode, inMsgBody.loadCoins(), content);
+      // Duplicating check is implemented in item, but no harm if we can termitate earlier
+      var mintPriceList: cell = getBlockchainConfigParam(6);
+      assert(mintPriceList != null, ERROR_NO_PARAM_6);
+
+      var tonAmount  = inMsgBody.loadCoins();
+
+      var forwardFee = deployNftItem(itemIndex, nftItemCode, tonAmount, content);
+      // Forward fee is for basechain (likely) and most of the forwards are in master, but at least it has enough to bounce.
+      var ps: slice = mintPriceList.beginParse();
+      assert(tonAmount > max(ps.loadCoins(), ps.loadCoins()) + forwardFee * 6, NOT_ENOUGH_GAS);
+
+      // Paying fees separately, so one forward amount goes here
+      var gasRequired = tonAmount + forwardFee + calculateGasFee(NFT_WORKCHAIN, getGasConsumedAtTheMoment() * 2);
+      assert(msgValue >= gasRequired, NOT_ENOUGH_GAS);
       saveData(curCount + 1, content, ownerAddress, nftItemCode);
       return;
     }
