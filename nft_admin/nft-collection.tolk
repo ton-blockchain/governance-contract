@@ -141,7 +141,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     
     var (ownerAddress, curCount, maxCount, content, nftItemCode) = loadData();
 
-    if (flags & 1) { // ignore all bounced messages
+    if (flags & 1) {
         inMsgBody.skipBouncedPrefix();
         var op = inMsgBody.loadUint(32);
         if(op == OP_NEW_ITEM) {
