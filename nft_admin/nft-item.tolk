@@ -194,7 +194,7 @@ fun sendMintExtra(index: int, version: int, amount: int,  reserve: int, minterAd
           .endCell();
 
     reserveEc(reserve, null, RESERVE_IN_ADDITION | RESERVE_AT_MOST);
-    sendRawMessage(msgMint, SEND_MODE_CARRY_ALL_BALANCE | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
+    return sendMessage(msgMint, SEND_MODE_CARRY_ALL_BALANCE | SEND_MODE_BOUNCE_ON_ACTION_FAIL);
 }
 
 
@@ -360,9 +360,6 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         // Pick maximum possible fee from config
         msgValue -= max(ps.loadCoins(), ps.loadCoins());
 
-        // No need for 3/2 because of we have StateInit incomming at this point.
-        msgValue -= fwdFee * 6;
-
         // Account for storage fee
         var reserveTon: int = getMyStorageDuePayment() + abs(min(0, balanceBefore - minTonsForStorage()));
 
@@ -371,7 +368,6 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         msgValue -= calculateGasFee(NFT_WORKCHAIN, MINT_INITIAL_GAS) +
                     calculateGasFee(NFT_WORKCHAIN, ITEM_MINTED_GAS);
 
-        assert(msgValue > 0, ERROR_UNCOVERED_FEE);
 
         if(isStandardRefund) {
             refundPayload.storeUint(1, 1).storeSlice(refundAddress);
@@ -379,7 +375,10 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
             refundPayload.storeUint(0, 1);
         }
 
-        sendMintExtra(index, collectionVersion, mintAmount, reserveTon, minterAddr, refundPayload.endCell(), queryId);
+        // Getting actual masterchain forward fee. Payload size is static, so it's safe to used
+        var mintForward = sendMintExtra(index, collectionVersion, mintAmount, reserveTon, minterAddr, refundPayload.endCell(), queryId);
+
+        assert(msgValue >= mintForward * 6, ERROR_UNCOVERED_FEE);
 
         storeData(AWAIT_INIT, index, collectionAddress, owner, content, mintAmount, mintAmount);
       } catch (errCode) {
