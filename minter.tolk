@@ -9,7 +9,7 @@
  * - Authorization is performed by checking the ExtraCurrencyAuthorizationConfig.
  *
  * Message Scheme:
- * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * mint query_id:uint64 collection_version: uint8 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - The Minter checks that there are sufficient TON funds to pay from Config6 plus 5 times the forwarding fee.
  *   Note: There are no checks for (VarUint 32) overflow.
@@ -18,23 +18,23 @@
  * - After validation, the Minter sends a mint request to the Config contract.
  *
  * Message Scheme:
- * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - The Config contract verifies that the request originates from the Minter contract, unpacks the 7th config parameter, and adds the requested amountToMint to the currencyId.
  * - The Config contract responds to the Minter.
  *
  * Message Scheme:
- * registered query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * registered query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - At this point, the extra currency is not minted yet. We need to wait until the next masterchain block by sending a message to the Echo contract.
  *
  * Message Scheme:
- * echo query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * echo query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - The Echo contract responds with:
  *
  * Message Scheme:
- * echoed query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * echoed query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - Upon receiving the echoed message, the Minter verifies that it was sent from the Echo contract.
  * - At this moment, the extra currency has been added to the Minter's balance.

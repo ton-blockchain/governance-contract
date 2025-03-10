@@ -13,7 +13,7 @@ export const Ops = {
     OP_MINT_INITIAL : 0xa80bbfd7,
     OP_REFUND_MINT  : 0x2231db7d,
     OP_MINT_EC : 0x6760c40b,
-    OP_OUT_EC  : 0xbefd2d8f,
+    OP_OUT_EC  : 0xf6db9ae7,
     OP_BURN_EC : 0x8129586f,
     OP_BURN_NOTIFICATION : 0x0766ec37,
     OP_REBALANCE : 0xe624f852,

@@ -53,7 +53,7 @@ authorization_record$_
 collection_address:MsgAddress
 owner_address:MsgAddress
 max_items:uint32
-wallet_code:^Cell = AuthorizationRecord;
+item_code:^Cell = AuthorizationRecord;
 
 authorization_config$_ collection_map:(Hashmap 8 AuthorizationRecord) = AuthorizationConfig;
 

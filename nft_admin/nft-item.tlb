@@ -96,7 +96,7 @@ to:MsgAddress = InternalMsgBody;
 
 excess#d53276db query_id:uint64 = InternalMsgBody;
 
-out_ec#befd2d8f query_id:uint64 = InternalMsgBody;
+out_ec#f6db9ae7 query_id:uint64 payload:(Either ^Cell Cell) = InternalMsgBody;
 rebalance#e624f852 query_id:uint64 = InternalMsgBody;
 
 failed#023a79ce query_id:uint64 err_code:uint10 = InternalMsgBody;
