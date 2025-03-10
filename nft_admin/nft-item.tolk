@@ -13,7 +13,7 @@
 
 */
 
-tolk 0.8
+tolk 0.9
 
 import "@stdlib/gas-payments"
 import "@stdlib/tvm-dicts"
@@ -49,7 +49,7 @@ const INITIALIZED = 2;
 //  content:^Cell = ItemStorage
 
 @inline
-fun loadData(): (int, int, slice, slice, cell, int, int) {
+fun loadData(): (int, int, slice, slice?, cell?, int, int) {
     var ds: slice = getContractData().beginParse();
     var (status, index, collectionAddress) = (ds.loadUint(4), ds.loadUint(32), ds.loadAddress());
 
@@ -215,7 +215,7 @@ fun refundMint(refund: slice, index: int, errCode: int, queryId: int) {
 }
 
 @inline
-fun sendBurnNotification(to: slice, from: slice, refund: slice, amount: int, forwardTon: int, extraIn: cell, payload: cell, queryId: int) {
+fun sendBurnNotification(to: slice, from: slice, refund: slice, amount: int, forwardTon: int, extraIn: cell?, payload: cell?, queryId: int) {
 
     var (wc, hash, isStandard) = refund.isStandardAddress();
     var sendMode: int = SEND_MODE_PAY_FEES_SEPARATELY;
@@ -261,7 +261,7 @@ fun processTransfer(body: slice, to: slice, refund: slice, index: int, transferA
 
 @inline
 fun sendEc(to: slice, refund: slice, index: int, amount: int, tonAmount: int, payload: slice, queryId: int) {
-    var currenciesToSend: cell = createEmptyDict();
+    var currenciesToSend: cell? = createEmptyDict();
     currenciesToSend.uDictSetBuilder(32, index, beginCell().storeCurrency(amount));
 
     var (wc, hash, isStandard) = refund.isStandardAddress();
@@ -307,9 +307,9 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     cs.loadAddress(); // skip dst
     cs.loadCoins(); // skip value
 
-    var minterAddr: int = getBlockchainConfigParam(MinterAddressConfig).beginParse().preloadUint(256);
+    var minterAddr: int = getBlockchainConfigParam(MinterAddressConfig)!.beginParse().preloadUint(256);
 
-    var (status: int, index: int, collectionAddress: slice, ownerAddress: slice, content: cell, balance: int, maxSupply: int) = loadData();
+    var (status: int, index: int, collectionAddress: slice, ownerAddress: slice?, content: cell?, balance: int, maxSupply: int) = loadData();
 
     if (flags & 1) {
         // If bounce is from minter
@@ -353,7 +353,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         assert(status == NOT_INITIALIZED, ALREADY_INITED);
         var refundPayload: builder = beginCell();
         var balanceBefore: int  = myBalance - msgValue;
-        var mintPriceList: cell = getBlockchainConfigParam(6);
+        var mintPriceList: cell? = getBlockchainConfigParam(6);
         assert(mintPriceList != null, ERROR_NO_PARAM_6);
 
         var ps: slice = mintPriceList.beginParse();
@@ -468,7 +468,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     if (op == OP_MINT_JETTON) {
         // Mimic common jetton mint payload
 
-        assert(isSliceBitsEqual(ownerAddress, senderAddress), INVALID_SENDER);
+        assert(isSliceBitsEqual(ownerAddress!, senderAddress), INVALID_SENDER);
         var toAddress: slice = inMsgBody.loadAddress();
         var tonAmount = inMsgBody.loadCoins();
         var masterMsg = inMsgBody.loadRef();
@@ -487,7 +487,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     }
     // In order to retain compatibility gonna have to carry the jetton scheme
     if (op == OP_MINT_EC) {
-        assert(isSliceBitsEqual(ownerAddress, senderAddress), INVALID_SENDER);
+        assert(isSliceBitsEqual(ownerAddress!, senderAddress), INVALID_SENDER);
         var transferAmount = inMsgBody.loadCurrency();
 
         var to = inMsgBody.loadAddress();
@@ -516,13 +516,13 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         var refund  = inMsgBody.loadAddress();
         var payload = inMsgBody.loadMaybeRef();
 
-        sendBurnNotification(ownerAddress, senderAddress, refund, burnAmount, forwardTon, extraIn, payload, queryId);
+        sendBurnNotification(ownerAddress!, senderAddress, refund, burnAmount, forwardTon, extraIn, payload, queryId);
 
         return;
     }
 
     if(op == OP_WITHDRAW_EXCESS) {
-        var isOwner: bool = isSliceBitsEqual(ownerAddress, senderAddress);
+        var isOwner: bool = isSliceBitsEqual(ownerAddress!, senderAddress);
         var isCollection: bool = false;
 
         if(!isOwner) {
@@ -531,7 +531,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 
         assert(isOwner || isCollection, INVALID_SENDER);
         var ecBalance: int = 0;
-        var reserveEc:cell = createEmptyDict();
+        var reserveEc:cell? = createEmptyDict();
 
         if(inMsgBody.loadUint(1)) {
         	var withdrawCur = inMsgBody.loadUint(32);
@@ -601,14 +601,14 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 //  GET Methods
 //
 
-get get_nft_data(): (bool, int, slice, slice, cell) {
-  var (status: int, index: int, collectionAddress: slice, ownerAddress: slice, content: cell, _, _) = loadData();
+get get_nft_data(): (bool, int, slice, slice?, cell?) {
+  var (status: int, index: int, collectionAddress: slice, ownerAddress: slice?, content: cell?, _, _) = loadData();
 
   return (status == INITIALIZED, index, collectionAddress, ownerAddress, content);
 }
 
-get get_jetton_data(): (int, bool, slice, cell, cell) {
-  var (status: int, index: int, collectionAddress: slice, ownerAddress: slice, content: cell, balance, maxSupply) = loadData();
+get get_jetton_data(): (int, bool, slice?, cell?, cell?) {
+  var (status: int, index: int, collectionAddress: slice, ownerAddress: slice?, content: cell?, balance, maxSupply) = loadData();
 
   assert(status == INITIALIZED, NOT_INITED);
 

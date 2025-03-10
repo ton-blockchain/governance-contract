@@ -34,7 +34,7 @@ fun storeOnlyBodyRef(b: builder, body: cell) {
 }
 
 @inline
-fun storeBodyRefWithEc(mutate self: builder, body: cell, ec: cell) {
+fun storeBodyRefWithEc(mutate self: builder, body: cell, ec: cell?) {
     return self.storeDict(ec)
     .storeUint(MSG_BODY_IN_REF, MSG_ONLY_BODY_SIZE - 1)
     .storeRef(body);
@@ -64,11 +64,11 @@ fun storeEitherPayload(mutate self: builder, payload: slice): builder {
     return self;
 }
 
-fun reserveEc(tonValue: int, ec: cell, mode: int): void
+fun reserveEc(tonValue: int, ec: cell?, mode: int): void
 	asm "RAWRESERVEX";
 
 @inline_ref
-fun sendExcess(op: int, tonReserve: int, refund: slice, ecReserve: cell, queryId: int,flags: int, err: int) {
+fun sendExcess(op: int, tonReserve: int, refund: slice, ecReserve: cell?, queryId: int,flags: int, err: int) {
     var excessMsg = beginCell()
                       .storeUint(NON_BOUNCEABLE, 6)
                       .storeSlice(refund)

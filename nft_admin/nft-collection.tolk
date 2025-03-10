@@ -1,4 +1,4 @@
-tolk 0.8
+tolk 0.9
 
 import "@stdlib/tvm-dicts"
 import "@stdlib/gas-payments"
@@ -32,15 +32,15 @@ fun loadData(): (slice, int, int, cell, cell) {
       var (cs, found) = config.uDictGet(8, COLLECTION_VERSION);
 
       assert(found, COLLECTION_NOT_IN_CONFIG);
-      assert(isSliceBitsEqual(cs.loadAddress(), getMyAddress()), COLLECTION_ADDRESS_MISMATCH);
+      assert(isSliceBitsEqual(cs!.loadAddress(), getMyAddress()), COLLECTION_ADDRESS_MISMATCH);
 
       var ds = getContractData().beginParse();
       return 
-        (cs.loadAddress(), // owner_address from config
+        (cs!.loadAddress(), // owner_address from config
          ds.loadUint(32), // itemCount
-         cs.loadUint(32), // Max item count from config
+         cs!.loadUint(32), // Max item count from config
          ds.loadRef(), // collection content
-         cs.loadRef() // item code from config
+         cs!.loadRef() // item code from config
          );
   } catch (errCode) {
     loadStatus = errCode;
@@ -191,14 +191,14 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
       assert(COLLECTION_VERSION == ds.preloadUint(8), INVALID_COLLECTION_VERSION);
 
       // Duplicating check is implemented in item, but no harm if we can termitate earlier
-      var mintPriceList: cell = getBlockchainConfigParam(6);
+      var mintPriceList: cell? = getBlockchainConfigParam(6);
       assert(mintPriceList != null, ERROR_NO_PARAM_6);
 
       var tonAmount  = inMsgBody.loadCoins();
 
       var forwardFee = deployNftItem(itemIndex, nftItemCode, tonAmount, content);
       // Forward fee is for basechain (likely) and most of the forwards are in master, but at least it has enough to bounce.
-      var ps: slice = mintPriceList.beginParse();
+      var ps: slice = mintPriceList!.beginParse();
       assert(tonAmount > max(ps.loadCoins(), ps.loadCoins()) + forwardFee * 6, NOT_ENOUGH_GAS);
 
       // Paying fees separately, so one forward amount goes here
@@ -238,13 +238,13 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 
     if(op == OP_WITHDRAW_EXCESS_COLLECTION) {
         var ecBalance: int = 0;
-        var reserveEc:cell = createEmptyDict();
+        var reserveEc:cell? = createEmptyDict();
 
         if(inMsgBody.loadUint(1)) {
         	var withdrawCur = inMsgBody.loadUint(32);
         	ecBalance = getEcAmount(getRawEc(), withdrawCur);
         	assert(ecBalance > 0, NOT_ENOUGH_EC);
-                reserveEc.packEc(withdrawCur, ecBalance);
+          reserveEc.packEc(withdrawCur, ecBalance);
         } else {
         	reserveEc = getRawEc();
         }

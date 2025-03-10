@@ -72,7 +72,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     var queryId: int = inMsgBody.loadUint(64);
 
     if (op == OP_MINT) {
-        var authConfig: cell = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
+        var authConfig: cell? = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
         assert(authConfig != null, ERROR_NO_AUTH_CONFIG);
 
         var collectionVersion: int = inMsgBody.loadUint(8);
@@ -81,17 +81,17 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 
         assert(found, ERROR_UNAUTHORIZED_MINT_REQUEST);
 
-        var collectionAddress = cs.loadAddress();
+        var collectionAddress = cs!.loadAddress();
 
         var (workchain, _) = parseStandardAddress(senderAddress);
 
-        var itemCode: cell = cs.loadRef();
+        var itemCode: cell = cs!.loadRef();
         var currencyId: int = inMsgBody.loadUint(32);
 
         var amountToMint: int = inMsgBody.loadCurrency();
-        var payload: cell = inMsgBody.loadMaybeRef();
+        var payload: cell? = inMsgBody.loadMaybeRef();
 
-        var mintPriceList: cell = getBlockchainConfigParam(6);
+        var mintPriceList: cell? = getBlockchainConfigParam(6);
         assert(mintPriceList != null, ERROR_NO_PARAM_6);
 
         var ps: slice = mintPriceList.beginParse();
@@ -108,7 +108,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 
         assert(msgValue >= requiredFee + fwdFee * 5) throw ERROR_UNCOVERED_FEE;
 
-        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig).beginParse().preloadUint(256);
+        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig)!.beginParse().preloadUint(256);
 
         var msgToConfig = beginCell()
           .storeUint(BOUNCEABLE, 6)
@@ -126,14 +126,14 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         return sendRawMessage(msgToConfig, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
     }
     if(op == OP_MINT_REGISTERED) {
-        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig).beginParse().preloadUint(256);
+        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig)!.beginParse().preloadUint(256);
         var (workchain, bareSenderAddress) = parseStandardAddress(senderAddress);
         assert( (workchain == -1) && (bareSenderAddress == configAddr)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
 
         var currencyId: int = inMsgBody.loadUint(32);
         var amountToMint: int = inMsgBody.loadCurrency();
         var from: slice = inMsgBody.loadAddress();
-        var payload: cell = inMsgBody.loadMaybeRef();
+        var payload: cell? = inMsgBody.loadMaybeRef();
         
         var EchoAddress = getContractData().beginParse().loadAddress();
         
@@ -158,13 +158,13 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         var currencyId: int = inMsgBody.loadUint(32);
         var amountToMint: int = inMsgBody.loadCurrency();
         var owner: slice  = inMsgBody.loadAddress();
-        var payload: cell = inMsgBody.loadMaybeRef();
+        var payload: cell? = inMsgBody.loadMaybeRef();
         
         // var currencyOwners: cell = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
         // var (owner, exist) = currencyOwners.uDictGet(32, currencyId);
         // assert( exist ) throw ERROR_UNAUTHORIZED_MINT_REQUEST;        
 
-        var currenciesToSend: cell = createEmptyDict();
+        var currenciesToSend: cell? = createEmptyDict();
         currenciesToSend.uDictSetBuilder(32, currencyId, beginCell().storeCurrency(amountToMint));
         
         var msgToOwner = beginCell()

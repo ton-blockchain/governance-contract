@@ -31,25 +31,25 @@ fun isStandardAddress(s: slice): (int, int, bool)
 
 @pure
 @inline
-fun getRawEc() : cell {
+fun getRawEc() : cell? {
 	var [ton , ec] = getMyOriginalBalanceWithExtraCurrencies();
 	return ec;
 }
 
 @inline
-fun getEcAmount(self: cell, id: int) {
+fun getEcAmount(self: cell?, id: int) {
 	var res: int   = 0;
 
 	var (data, found) = self.uDictGet(32, id);
 
 	if(found) {
-		res = data.loadCurrency();
+		res = data!.loadCurrency();
 	}
 
 	return res;
 }
 
 @inline
-fun packEc(mutate self: cell, id: int, amount: int) {
+fun packEc(mutate self: cell?, id: int, amount: int) {
     self.uDictSetBuilder(32, id, beginCell().storeCurrency(amount));
 }
