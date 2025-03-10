@@ -68,7 +68,7 @@ Upon [receiving](https://github.com/Trinketer22/governance-contract/blob/nft_min
 
 - Checks that it is not yet [initialized](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L353)
 - Performs gas [checks](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L381)
-- Saves content and owner to [state] and sets status to `AWAIT_INIT` (https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L340)
+- Saves content and owner to [state](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L383) and sets status to `AWAIT_INIT`
 
 If all conditions met, initiates the [mint protocol](https://github.com/Trinketer22/governance-contract/blob/nft_minter/minter.tolk#L5) by [sending](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L379) mint message to the minter contract deducting 1 TON for storage expenses.
 
@@ -81,12 +81,12 @@ In case mint protocol executed successfully, item checks:
 
 - Item [expects](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L395) mint response
 - Request came from [minter address](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L393)
-- That mint response is intended for [it](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L397)
+- That mint response is intended for it's [index](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L397)
 - Incoming EC value [matches](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L400-L401) expected values
 
 In case all conditions are met:
 
-- Status is [set]() to `INITIALIZED`
+- Status is [set](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L409) to `INITIALIZED`
 - TON refund is [sent](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L406) to the address from refund payload (if any)
 
 After that, minter holds `maxSupply` and becomes essentially vault for the
@@ -116,7 +116,7 @@ Same happens if item [bounced](https://github.com/Trinketer22/governance-contrac
 - [Rebalance](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L572)
 - [Reset](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L418) item status.
 - [Update](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L442) item content
-- [Withdraw excess](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L572) extra and TON.
+- [Withdraw excess](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L524) extra and TON.
 - [Top up](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L436)
 - [Get static data](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L592)
 - [Get nft data](https://github.com/Trinketer22/governance-contract/blob/nft_minter/nft_admin/nft-item.tolk#L604)
