@@ -9,7 +9,7 @@
  * - Authorization is performed by checking the ExtraCurrencyAuthorizationConfig.
  *
  * Message Scheme:
- * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * mint query_id:uint64 collection_version: uint8 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - The Minter checks that there are sufficient TON funds to pay from Config6 plus 5 times the forwarding fee.
  *   Note: There are no checks for (VarUint 32) overflow.
@@ -18,23 +18,23 @@
  * - After validation, the Minter sends a mint request to the Config contract.
  *
  * Message Scheme:
- * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * mint query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - The Config contract verifies that the request originates from the Minter contract, unpacks the 7th config parameter, and adds the requested amountToMint to the currencyId.
  * - The Config contract responds to the Minter.
  *
  * Message Scheme:
- * registered query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * registered query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - At this point, the extra currency is not minted yet. We need to wait until the next masterchain block by sending a message to the Echo contract.
  *
  * Message Scheme:
- * echo query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * echo query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - The Echo contract responds with:
  *
  * Message Scheme:
- * echoed query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) payload:(Maybe ^Cell) = InternalMsgBody;
+ * echoed query_id:uint64 currency_id:int32 amount_to_mint:(VarUInteger 32) mint_to: MsgAddress payload:(Maybe ^Cell) = InternalMsgBody;
  *
  * - Upon receiving the echoed message, the Minter verifies that it was sent from the Echo contract.
  * - At this moment, the extra currency has been added to the Minter's balance.
@@ -52,6 +52,7 @@ import "@stdlib/tvm-dicts"
 import "@stdlib/gas-payments"
 import "constants.tolk"
 import "utils.tolk"
+import "nft_admin/nft_helpers.tolk"
 
 fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody: slice) {
     if (inMsgBody.getRemainingBitsCount() == 0) { // ignore empty messages
@@ -71,14 +72,27 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
     var queryId: int = inMsgBody.loadUint(64);
 
     if (op == OP_MINT) {
-        var currencyOwners: cell = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
+        var authConfig: cell? = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
+        assert(authConfig != null, ERROR_NO_AUTH_CONFIG);
 
+        var collectionVersion: int = inMsgBody.loadUint(8);
+
+        var (cs, found) = authConfig.uDictGet(8, collectionVersion);
+
+        assert(found, ERROR_UNAUTHORIZED_MINT_REQUEST);
+
+        var collectionAddress = cs!.loadAddress();
+
+        var (workchain, _) = parseStandardAddress(senderAddress);
+
+        var itemCode: cell = cs!.loadRef();
         var currencyId: int = inMsgBody.loadUint(32);
-        var amountToMint: int = inMsgBody.loadCurrency();
-        var payload: cell = inMsgBody.loadMaybeRef();
 
-        var mintPriceList: cell = getBlockchainConfigParam(6);
-        assert(!((mintPriceList == null))) throw ERROR_NO_PARAM_6;
+        var amountToMint: int = inMsgBody.loadCurrency();
+        var payload: cell? = inMsgBody.loadMaybeRef();
+
+        var mintPriceList: cell? = getBlockchainConfigParam(6);
+        assert(mintPriceList != null, ERROR_NO_PARAM_6);
 
         var ps: slice = mintPriceList.beginParse();
         var mintNewPrice: int = ps.loadCoins();
@@ -89,12 +103,12 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
         var fwdFeeFromInMsg: int = inMsgFullSlice.retrieveFwdFee();
         var fwdFee: int = calculateOriginalMessageFee(MY_WORKCHAIN, fwdFeeFromInMsg); // we use message fwd_fee for estimation of forward_payload costs
         
-        var (owner, exist) = currencyOwners.uDictGet(32, currencyId);
-        assert( exist ) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
-        assert( isSliceBitsEqual(senderAddress, owner)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
+        var stateInit: cell = calculateNftItemStateInit(currencyId, itemCode, collectionAddress);
+        assert(isSliceBitsEqual(senderAddress, calculateNftItemAddress(workchain, stateInit)), ERROR_UNAUTHORIZED_MINT_REQUEST);
+
         assert(msgValue >= requiredFee + fwdFee * 5) throw ERROR_UNCOVERED_FEE;
 
-        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig).beginParse().preloadUint(256);
+        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig)!.beginParse().preloadUint(256);
 
         var msgToConfig = beginCell()
           .storeUint(BOUNCEABLE, 6)
@@ -106,18 +120,20 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
           .storeMessageQueryId(queryId)
           .storeUint(currencyId, 32)
           .storeCurrency(amountToMint)
+          .storeSlice(senderAddress) // So in the end of the chain minter would know where to send the EC.
           .storeMaybeRef(payload)
           .endCell();
         return sendRawMessage(msgToConfig, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
     }
     if(op == OP_MINT_REGISTERED) {
-        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig).beginParse().preloadUint(256);
+        var configAddr: int = getBlockchainConfigParam(ConfigAddressConfig)!.beginParse().preloadUint(256);
         var (workchain, bareSenderAddress) = parseStandardAddress(senderAddress);
         assert( (workchain == -1) && (bareSenderAddress == configAddr)) throw ERROR_UNAUTHORIZED_MINT_REQUEST;
 
         var currencyId: int = inMsgBody.loadUint(32);
         var amountToMint: int = inMsgBody.loadCurrency();
-        var payload: cell = inMsgBody.loadMaybeRef();
+        var from: slice = inMsgBody.loadAddress();
+        var payload: cell? = inMsgBody.loadMaybeRef();
         
         var EchoAddress = getContractData().beginParse().loadAddress();
         
@@ -130,6 +146,7 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
           .storeMessageQueryId(queryId)
           .storeUint(currencyId, 32)
           .storeCurrency(amountToMint)
+          .storeSlice(from)
           .storeMaybeRef(payload)
           .endCell();
         return sendRawMessage(msgToEcho, SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
@@ -140,13 +157,14 @@ fun onInternalMessage(myBalance: int, msgValue: int, inMsgFull: cell, inMsgBody:
 
         var currencyId: int = inMsgBody.loadUint(32);
         var amountToMint: int = inMsgBody.loadCurrency();
-        var payload: cell = inMsgBody.loadMaybeRef();
+        var owner: slice  = inMsgBody.loadAddress();
+        var payload: cell? = inMsgBody.loadMaybeRef();
         
-        var currencyOwners: cell = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
-        var (owner, exist) = currencyOwners.uDictGet(32, currencyId);
-        assert( exist ) throw ERROR_UNAUTHORIZED_MINT_REQUEST;        
+        // var currencyOwners: cell = getBlockchainConfigParam(ExtraCurrencyAuthorizationConfig);
+        // var (owner, exist) = currencyOwners.uDictGet(32, currencyId);
+        // assert( exist ) throw ERROR_UNAUTHORIZED_MINT_REQUEST;        
 
-        var currenciesToSend: cell = createEmptyDict();
+        var currenciesToSend: cell? = createEmptyDict();
         currenciesToSend.uDictSetBuilder(32, currencyId, beginCell().storeCurrency(amountToMint));
         
         var msgToOwner = beginCell()

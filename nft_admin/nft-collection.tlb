@@ -1,0 +1,97 @@
+nothing$0 {X:Type} = Maybe X;
+just$1 {X:Type} value:X = Maybe X;
+left$0 {X:Type} {Y:Type} value:X = Either X Y;
+right$1 {X:Type} {Y:Type} value:Y = Either X Y;
+var_uint$_ {n:#} len:(#< n) value:(uint (len * 8))
+         = VarUInteger n;
+
+bit$_ (## 1) = Bit;
+
+addr_none$00 = MsgAddressExt;
+addr_extern$01 len:(## 9) external_address:(bits len)
+             = MsgAddressExt;
+anycast_info$_ depth:(#<= 30) { depth >= 1 }
+   rewrite_pfx:(bits depth) = Anycast;
+addr_std$10 anycast:(Maybe Anycast)
+   workchain_id:int8 address:bits256  = MsgAddressInt;
+addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9)
+   workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
+_ _:MsgAddressInt = MsgAddress;
+_ _:MsgAddressExt = MsgAddress;
+nanograms$_ amount:(VarUInteger 16) = Grams;
+
+/*
+ *
+ *   FROM hashmap.tlb
+ *
+ */
+// ordinary Hashmap / HashmapE, with fixed length keys
+//
+hm_edge#_ {n:#} {X:Type} {l:#} {m:#} label:(HmLabel ~l n)
+          {n = (~m) + l} node:(HashmapNode m X) = Hashmap n X;
+
+hmn_leaf#_ {X:Type} value:X = HashmapNode 0 X;
+hmn_fork#_ {n:#} {X:Type} left:^(Hashmap n X)
+           right:^(Hashmap n X) = HashmapNode (n + 1) X;
+
+hml_short$0 {m:#} {n:#} len:(Unary ~n) {n <= m} s:(n * Bit) = HmLabel ~n m;
+hml_long$10 {m:#} n:(#<= m) s:(n * Bit) = HmLabel ~n m;
+hml_same$11 {m:#} v:Bit n:(#<= m) = HmLabel ~n m;
+
+unary_zero$0 = Unary ~0;
+unary_succ$1 {n:#} x:(Unary ~n) = Unary ~(n + 1);
+
+hme_empty$0 {n:#} {X:Type} = HashmapE n X;
+hme_root$1 {n:#} {X:Type} root:^(Hashmap n X) = HashmapE n X;
+
+
+_ grams:Grams = Coins;
+
+_ extra:(VarUInteger 32) = ExtraCoins;
+
+authorization_record$_
+collection_address:MsgAddress
+owner_address:MsgAddress
+max_items:uint32
+item_code:^Cell = AuthorizationRecord;
+
+authorization_config$_ collection_map:(Hashmap 8 AuthorizationRecord) = AuthorizationConfig;
+
+collection_data$_ item_count:uint32
+backup_owner:MsgAddress
+content:^Cell
+backup_item_code:^Cell = CollectionData;
+
+mint_initial#a80bbfd7 query_id:uint64
+collection_version:uint8
+owner:MsgAddressInt
+mint_amount:ExtraCoins
+refund_address:MsgAddress
+content:Cell = NewItemContent;
+
+new_item#9ab3b012 query_id:uint64
+item_index:uint32
+ton_amount:Coins
+content_payload:^NewItemContent = InternalMsgBody;
+
+refund_mint#2231db7d query_id:uint64
+item_index:uint32 = InternalMsgBody;
+
+excess#d53276db query_id:uint64 = InternalMsgBody;
+
+update_item_content#7980902a query_id:uint64
+               update_index:uint32
+               refund_address:MsgAddress
+               content:^Cell = InternalMsgBody;
+
+reset_item#4f225089 query_id:uint64
+reset_index:uint32
+refund_address:MsgAddress = InternalMsgBody;
+
+_ withdraw_id:uint32 = WithdrawSpecific;
+
+withdraw_excess_collection#8737c583 query_id:uint64
+specific:(Maybe WithdrawSpecific)
+from_balance_amount:Coins
+to:MsgAddress = InternalMsgBody;
+

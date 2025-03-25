@@ -1,0 +1,102 @@
+nothing$0 {X:Type} = Maybe X;
+just$1 {X:Type} value:X = Maybe X;
+left$0 {X:Type} {Y:Type} value:X = Either X Y;
+right$1 {X:Type} {Y:Type} value:Y = Either X Y;
+var_uint$_ {n:#} len:(#< n) value:(uint (len * 8))
+         = VarUInteger n;
+
+addr_none$00 = MsgAddressExt;
+addr_extern$01 len:(## 9) external_address:(bits len)
+             = MsgAddressExt;
+anycast_info$_ depth:(#<= 30) { depth >= 1 }
+   rewrite_pfx:(bits depth) = Anycast;
+addr_std$10 anycast:(Maybe Anycast)
+   workchain_id:int8 address:bits256  = MsgAddressInt;
+addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9)
+   workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
+_ _:MsgAddressInt = MsgAddress;
+_ _:MsgAddressExt = MsgAddress;
+nanograms$_ amount:(VarUInteger 16) = Grams;
+
+_ grams:Grams = Coins;
+
+_ extra:(VarUInteger 32) = ExtraCoins;
+
+_ balance:ExtraCoins maxSupply:ExtraCoins = SupplyData;
+
+item_storage$_ status:uint4
+index:uint32
+collection_address:MsgAddressInt
+owner_address:MsgAddressInt
+supplyData:^SupplyData
+content:^Cell = ItemStorage;
+
+mint_initial#a80bbfd7 query_id:uint64
+collection_version:uint8
+owner:MsgAddressInt
+mint_amount:ExtraCoins
+refund_address:MsgAddress
+content:Cell = InternalMsgBody;
+
+_ refund_address:(Maybe MsgAddress) = RefundPayload;
+
+minted#a40a0db4 query_id:uint64
+index:uint32
+mint_amount:ExtraCoins
+refund_payload:(Maybe ^RefundPayload) = InternalMsgBody;
+
+reset#4f225089 query_id:uint64
+reset_index:uint32
+refund_address:MsgAddress = InternalMsgBody;
+
+top_up#d372158c query_id:uint64 = InternalMsgBody;
+
+update_content#7980902a query_id:uint64
+               update_index:uint32
+               refund_address:MsgAddress
+               content:^Cell = InternalMsgBody;
+
+internal_transfer#178d4519 query_id:uint64 amount:(VarUInteger 16) from:MsgAddress
+                     response_address:MsgAddress
+                     forward_ton_amount:(VarUInteger 16)
+                     forward_payload:(Either Cell ^Cell)
+                     = InternalTransferBody;
+
+mint_jetton#642b7d07 query_id:uint64
+            to:MsgAddress
+            ton_amount:Coins
+            master_msg:^InternalTransferBody = InternalMsgBody;
+
+mint_ec#6760c40b query_id:uint64
+            transfer_amount:ExtraCoins
+            to:MsgAddress
+            refund_address:MsgAddress
+            custom_payload:(Maybe ^Cell)
+            forward_ton_amount:(VarUInteger 16)
+            forward_payload:(Either Cell ^Cell) = InternalMsgBody;
+
+burn_ec#8129586f query_id:uint64
+        forward_ton_amount:(VarUInteger 16)
+        burn_amount:ExtraCoins
+        refund_address:MsgAddress
+        forward_payload:(Maybe ^Cell) = InternalMsgBody;
+
+burn_notification#0766ec37 query_id:uint64
+    burn_amount:ExtraCoins
+    from:MsgAddressInt
+    refund:MsgAddress
+    custom_payload:(Maybe ^Cell) = InternalMsgBody;
+
+
+_ withdraw_id:uint32 = WithdrawSpecific;
+withdraw_excess#7ad2441e query_id:uint64
+specific:(Maybe WithdrawSpecific)
+from_balance_amount:Coins
+to:MsgAddress = InternalMsgBody;
+
+excess#d53276db query_id:uint64 = InternalMsgBody;
+
+out_ec#f6db9ae7 query_id:uint64 payload:(Either ^Cell Cell) = InternalMsgBody;
+rebalance#e624f852 query_id:uint64 = InternalMsgBody;
+
+failed#023a79ce query_id:uint64 err_code:uint10 = InternalMsgBody;

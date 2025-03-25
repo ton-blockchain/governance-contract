@@ -1,0 +1,7 @@
+const COLLECTION_VERSION = 0;
+const LOAD_SUCCESSFUL = 0;
+
+const MinterCollectionConfig = 142;
+
+const COLLECTION_NOT_IN_CONFIG = 2000;
+const COLLECTION_ADDRESS_MISMATCH = 2001;
