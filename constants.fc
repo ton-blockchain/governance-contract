@@ -15,6 +15,11 @@ const int op::response::stake_rejected = 0xee6f454c;
 const int op::not_allowed = 0xfffffffe;
 const int op::not_supported = 0xffffffff;
 const int op::response::stake_recover = 0xf96f7324;
+const int op::update_ownable_slot = 0x50526e56;
+const int op::response::ownable_slot_update_unauthorized = 0x50526e56;
+const int op::response::not_ownable_slot = 0x50444e56;
+const int op::response::incorrect_slot_value = 0x52226e56;
+const int op::response::ownable_slot_updated = 0x12226e56;
 
 const int op::response::stake_accepted = 0xf374484c;
 const int op::new_stake = 0x4e73744b;
@@ -43,10 +48,12 @@ const int error::unauthorized = 0x33440022; ;;TODO
 const int error::expired_vset = 0x13550021;
 const int error::no_elected_set = 0x7707; ;;TODO
 const int error::validator_params_mismatch = 0x7708; ;;TODO
+const int error::cannot_change_ownable_param_with_voting = 0x123;
 
 
 const int ONECOIN = 1000000000;
 
+const int config_params::ownable_admin_address = -1;
 const int config_params::config_address = 0;
 const int config_params::elector_address = 1;
 const int config_params::mandatory_params = 9;
